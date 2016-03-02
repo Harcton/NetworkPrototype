@@ -5,6 +5,7 @@
 #include <SpehsEngine/Window.h>
 #include <SpehsEngine/ApplicationData.h>
 #include <SpehsEngine/PolygonBatch.h>
+#include "Game.h"
 
 void main()
 {
@@ -14,30 +15,8 @@ void main()
 	console->addVariable("fps", applicationData->showFps);
 	console->addVariable("maxfps", applicationData->maxFps);
 
-	//Drawables
-	SpehsEngine::PolygonBatch square(4, 0.5f, 0.5f);
-
-	bool run = true;
-	while (run)
-	{
-		mainWindow->clearBuffer();
-		SpehsEngine::beginFPS();
-
-
-		//Update
-		console->update();
-		inputManager->update();
-		if (inputManager->isKeyDown(KEYBOARD_ESCAPE))
-			run = false;
-
-		//Render
-		square.draw();
-		console->render();
-
-		SpehsEngine::endFPS();
-		SpehsEngine::drawFPS();
-		mainWindow->swapBuffers();
-	}
+	Game game;
+	game.run();
 
 	SpehsEngine::uninitialize();
 }
