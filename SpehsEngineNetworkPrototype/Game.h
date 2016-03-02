@@ -7,6 +7,8 @@ public:
 	Game();
 	~Game();
 
-	void run();
+	void asioTimerTutorial3();
+	void asioTimerTutorial4();
+	void asioTimerTutorial5();
 };
 

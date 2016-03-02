@@ -15,8 +15,11 @@ void main()
 	console->addVariable("fps", applicationData->showFps);
 	console->addVariable("maxfps", applicationData->maxFps);
 
+
 	Game game;
-	game.run();
+	game.asioTimerTutorial5();
+
 
 	SpehsEngine::uninitialize();
+	getchar();
 }
