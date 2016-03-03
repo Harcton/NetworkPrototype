@@ -5,21 +5,29 @@
 #include <SpehsEngine/Window.h>
 #include <SpehsEngine/ApplicationData.h>
 #include <SpehsEngine/PolygonBatch.h>
-#include "Game.h"
+#include "TimerTutorial.h"
+#include "TCPDaytimeTutorial.h"
+
+
 
 void main()
 {
 
-	SpehsEngine::initialize("Network prototype");
+	spehs::initialize("Network prototype");
 	mainWindow->clearColor(0, 0, 0, 1.0f);
 	console->addVariable("fps", applicationData->showFps);
 	console->addVariable("maxfps", applicationData->maxFps);
+	
+
+	////TIMER
+	//TimerTutorial timerTutorial;
+	//timerTutorial.tutorial5();
+
+	//TCP DAYTIME
+	TCPDaytimeTutorial tcpDaytimeTutorial;
+	tcpDaytimeTutorial.tutorial1("derr");
 
 
-	Game game;
-	game.asioTimerTutorial5();
-
-
-	SpehsEngine::uninitialize();
+	spehs::uninitialize();
 	getchar();
 }
