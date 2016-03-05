@@ -25,7 +25,7 @@ void main()
 
 	//TCP DAYTIME
 	TCPDaytimeTutorial tcpDaytimeTutorial;
-	tcpDaytimeTutorial.tutorial1("derr");
+	tcpDaytimeTutorial.tutorial1("derrmahgerd");
 
 
 	spehs::uninitialize();
