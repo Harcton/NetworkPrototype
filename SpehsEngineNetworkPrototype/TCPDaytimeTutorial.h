@@ -40,13 +40,24 @@ public:
 	{
 		return socket;
 	}
+
+	/*In the function start(), we call boost::asio::async_write() to serve the data to the client.
+	Note that we are using boost::asio::async_write(), rather than ip::tcp::socket::async_write_some(),
+	to ensure that the entire block of data is sent. */
 	void start()
 	{
 		message = makeDaytimeString();
+
+		/*When initiating the asynchronous operation, and if using boost::bind(),
+		you must specify only the arguments that match the handler's parameter list.
+		In this program, both of the argument placeholders (boost::asio::placeholders::error and
+		boost::asio::placeholders::bytes_transferred) could potentially have been removed,
+		since they are not being used in handle_write(). */
 		boost::asio::async_write(socket, boost::asio::buffer(message),
-			boost::bind(&TCPConnection::handleWrite, boost::shared_from_this()/*,
-																			  boost::asio::placeholders::error,
-																			  boost::asio::placeholders::bytes_transferred*/));
+			boost::bind(&TCPConnection::handleWrite, shared_from_this()/*,
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred*/));
+		/*Any further actions for this client connection are now the responsibility of handle_write().*/
 	}
 
 private:
@@ -76,6 +87,9 @@ public:
 			boost::bind(&TCPServer::handleAccept, this, newConnection,
 			boost::asio::placeholders::error));
 	}
+
+	/*The function handle_accept() is called when the asynchronous accept operation initiated by start_accept() finishes.
+	It services the client request, and then calls start_accept() to initiate the next accept operation. */
 	void handleAccept(TCPConnection::pointer newConnection,
 		const boost::system::error_code& error)
 	{

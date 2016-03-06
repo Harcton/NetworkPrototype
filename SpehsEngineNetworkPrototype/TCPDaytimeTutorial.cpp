@@ -76,6 +76,9 @@ void TCPDaytimeTutorial::tutorial3(std::string serverName)
 {
 	try
 	{
+		/*We need to create a server object to accept incoming client connections.
+		The io_service object provides I/O services,
+		such as sockets, that the server object will use. */
 		boost::asio::io_service ioService;
 		TCPServer server(ioService);
 		ioService.run();
