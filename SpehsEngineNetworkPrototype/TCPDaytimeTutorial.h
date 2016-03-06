@@ -1,6 +1,8 @@
 #pragma once
 #include <string>
 #include <boost/asio.hpp>
+#include <boost/enable_shared_from_this.hpp>
+#include <boost/bind.hpp>
 
 std::string makeDaytimeString();
 
@@ -22,6 +24,40 @@ public:
 };
 
 
+
+
+
+//Tutorial 3
+class TCPConnection : public boost::enable_shared_from_this<TCPConnection>
+{
+public:
+	typedef boost::shared_ptr<TCPConnection> pointer;
+	static pointer create(boost::asio::io_service& ioService)
+	{
+		return pointer(new TCPConnection(ioService));
+	}
+	boost::asio::ip::tcp::socket& getSocketRef()
+	{
+		return socket;
+	}
+	void start()
+	{
+		message = makeDaytimeString();
+		boost::asio::async_write(socket, boost::asio::buffer(message),
+			boost::bind(&TCPConnection::handleWrite, boost::shared_from_this()/*,
+																			  boost::asio::placeholders::error,
+																			  boost::asio::placeholders::bytes_transferred*/));
+	}
+
+private:
+	TCPConnection(boost::asio::io_service& ioService) : socket(ioService){}
+	void handleWrite(/*const boost::system::error_code& error, size_t bytesTransferred*/)
+	{
+	}
+
+	std::string message;
+	boost::asio::ip::tcp::socket socket;
+};
 class TCPServer
 {
 public:
@@ -35,39 +71,19 @@ public:
 	}
 	void startAccept()
 	{
-
+		TCPConnection::pointer newConnection = TCPConnection::create(acceptor.get_io_service());
+		acceptor.async_accept(newConnection->getSocketRef(),
+			boost::bind(&TCPServer::handleAccept, this, newConnection,
+			boost::asio::placeholders::error));
 	}
+	void handleAccept(TCPConnection::pointer newConnection,
+		const boost::system::error_code& error)
+	{
+		if (!error)
+			newConnection->start();
+		startAccept();
+	}
+
 private:
 	boost::asio::ip::tcp::acceptor acceptor;
-};
-
-class TCPConnection : public boost::enable_shared_from_this<TCPConnection>
-{
-public:
-	typedef boost::shared_ptr<TCPConnection> pointer;
-	static pointer create(boost::asio::io_service& ioService)
-	{
-		return pointer(new TCPConnection(ioService));
-	}
-	boost::asio::ip::tcp::socket& socket()
-	{
-		return socket;
-	}
-	void start()
-	{
-		message = makeDaytimeString();
-		boost::asio::async_write(socket, boost::asio::buffer(message),
-		boost::bind(&TCPConnection::handleWrite, boost::shared_from_this()/*,
-		boost::asio::placeholders::error,
-		boost::asio::placeholders::bytes_transferred*/));
-	}
-
-private:
-	TCPConnection(boost::asio::io_service& ioService) : socket(ioService){}
-	void handleWrite(/*const boost::system::error_code& error, size_t bytesTransferred*/)
-	{
-	}
-
-	std::string message;
-	boost::asio::ip::tcp::socket socket;
 };

@@ -61,7 +61,7 @@ void TCPDaytimeTutorial::tutorial2(std::string serverName)
 	}
 	catch (std::exception& e)
 	{
-		std::cout << "\n" << e.what();
+		std::cerr << "\n" << e.what();
 	}
 }
 std::string makeDaytimeString()
@@ -74,6 +74,14 @@ std::string makeDaytimeString()
 //// TUTORIAL 3
 void TCPDaytimeTutorial::tutorial3(std::string serverName)
 {
-	boost::asio::io_service ioService;
-	TCPServer server(ioService);
+	try
+	{
+		boost::asio::io_service ioService;
+		TCPServer server(ioService);
+		ioService.run();
+	}
+	catch (std::exception& e)
+	{
+		std::cerr << "\n" << e.what();
+	}
 }
