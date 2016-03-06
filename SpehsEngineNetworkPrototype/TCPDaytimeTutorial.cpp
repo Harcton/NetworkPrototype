@@ -2,7 +2,11 @@
 #include <iostream>
 #include <ctime>
 #include <boost/array.hpp>
-
+#include <boost/asio/write.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/asio/error.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/connect.hpp>
 
 TCPDaytimeTutorial::TCPDaytimeTutorial()
 {
@@ -57,17 +61,12 @@ void TCPDaytimeTutorial::tutorial2(std::string serverName)
 
 		std::string message = makeDaytimeString();
 		boost::system::error_code ignoredError;
-		boost::asio::write(socket, boost::asio::buffer(message), ignoredError);
+		//boost::asio::write(socket, boost::asio::buffer(message), ignoredError); TODOMAYBE: Doesn't compile if uncommented
 	}
 	catch (std::exception& e)
 	{
 		std::cerr << "\n" << e.what();
 	}
-}
-std::string makeDaytimeString()
-{
-	std::time_t now = std::time(0);
-	return std::ctime(&now);
 }
 
 
@@ -80,7 +79,7 @@ void TCPDaytimeTutorial::tutorial3(std::string serverName)
 		The io_service object provides I/O services,
 		such as sockets, that the server object will use. */
 		boost::asio::io_service ioService;
-		TCPServer server(ioService);
+		//TCPServer server(ioService);
 		ioService.run();
 	}
 	catch (std::exception& e)

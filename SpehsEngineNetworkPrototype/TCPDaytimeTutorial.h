@@ -1,10 +1,13 @@
 #pragma once
 #include <string>
-#include <boost/asio.hpp>
+#include <boost/asio/io_service.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/bind.hpp>
+#include <boost/asio/placeholders.hpp>
+#include <boost/asio/socket_acceptor_service.hpp>
+#include <boost/asio.hpp>
+#include "MakeDaytimeString.h"
 
-std::string makeDaytimeString();
 
 class TCPDaytimeTutorial
 {

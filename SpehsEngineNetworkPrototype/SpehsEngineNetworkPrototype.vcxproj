@@ -43,7 +43,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
+      <SDLCheck>false</SDLCheck>
       <AdditionalIncludeDirectories>$(SolutionDir)/;$(SolutionDir)/Dependencies/include/;$(SolutionDir)/Dependencies/include/glm/;$(SPEHSENGINE_ROOT)/;$(SolutionDir)/Dependencies/include/boost/;$(SolutionDir)/../SpehsEngine/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
@@ -79,11 +79,18 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="TCPDaytimeTutorial.cpp" />
     <ClCompile Include="TimerTutorial.cpp" />
+    <ClCompile Include="UDPAsynchronousServer.cpp" />
+    <ClCompile Include="UDPClient.cpp" />
+    <ClCompile Include="UDPSynchronousServer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Game.h" />
+    <ClInclude Include="MakeDaytimeString.h" />
     <ClInclude Include="TCPDaytimeTutorial.h" />
     <ClInclude Include="TimerTutorial.h" />
+    <ClInclude Include="UDPAsynchronousServer.h" />
+    <ClInclude Include="UDPClient.h" />
+    <ClInclude Include="UDPSynchronousServer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
