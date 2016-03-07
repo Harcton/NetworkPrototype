@@ -1,6 +1,7 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <iostream>
+#include <SpehsEngine/Console.h>
 #include "UDPClient.h"
 
 UDPClient::UDPClient(){}
@@ -16,14 +17,23 @@ void UDPClient::run(std::string str)
 
 		boost::asio::ip::udp::socket socket(ioService);
 		socket.open(boost::asio::ip::udp::v4());
-		boost::array<char, 1> sendBuffer = { { 0 } };
+		boost::array<char, 1> sendBuffer = { { 0 } };//Sends 0 to server (?)
 		socket.send_to(boost::asio::buffer(sendBuffer), receiverEndpoint);
 
-		boost::array<char, 128> receiveBuffer;
+		boost::array<char, 1024> receiveBuffer;
 		boost::asio::ip::udp::endpoint senderEndpoint;
-		size_t length = socket.receive_from(
-			boost::asio::buffer(receiveBuffer), senderEndpoint);
+		size_t length = socket.receive_from(boost::asio::buffer(receiveBuffer), senderEndpoint);
+
+		//Output received data
+		std::cout << "\nUDPClient::receive buffer :";
 		std::cout.write(receiveBuffer.data(), length);
+
+		std::string receiveBufferAsString;
+		receiveBufferAsString.resize(length);
+		for (unsigned i = 0; i < length; i++)
+			receiveBufferAsString[i] = receiveBuffer[i];
+		console->log("UDPClient::receive buffer: " + receiveBufferAsString);
+
 	}
 	catch (std::exception& e)
 	{

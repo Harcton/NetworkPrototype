@@ -1,14 +1,16 @@
 #include <iostream>
 #include <boost/asio.hpp>
 #include <boost/array.hpp>
+#include <SpehsEngine/Console.h>
 #include "UDPSynchronousServer.h"
 #include "MakeDaytimeString.h"
 
 
 UDPSynchronousServer::UDPSynchronousServer(){}
 UDPSynchronousServer::~UDPSynchronousServer(){}
-void UDPSynchronousServer::run(std::string str)
+void UDPSynchronousServer::run()
 {
+	console->log("Creating synchronous UDP server...");
 	try
 	{
 		boost::asio::io_service ioService;
@@ -22,12 +24,13 @@ void UDPSynchronousServer::run(std::string str)
 			boost::asio::ip::udp::endpoint remoteEndpoint;
 			boost::system::error_code error;
 			socket.receive_from(boost::asio::buffer(receiveBuffer), remoteEndpoint, 0, error);
+			console->log("Sync server: data received");
 
 			if (error && error != boost::asio::error::message_size)
 				throw boost::system::system_error(error);
 
 			/*Determine what we are going to send back to the client. */
-			std::string message = makeDaytimeString();
+			std::string message = "udpSyncServer:" + makeDaytimeString();
 
 			/*Send the response to the remote_endpoint. */
 			boost::system::error_code ignoredError;
