@@ -10,6 +10,7 @@ void UDPClient::run(std::string str)
 {
 	try
 	{
+		spehs::console::log("Creating UDP client...");
 		boost::asio::io_service ioService;
 		boost::asio::ip::udp::resolver resolver(ioService);
 		boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), str, "daytime");
@@ -22,6 +23,7 @@ void UDPClient::run(std::string str)
 
 		boost::array<char, 1024> receiveBuffer;
 		boost::asio::ip::udp::endpoint senderEndpoint;
+		spehs::console::log("UDP client: waiting for server response...");
 		size_t length = socket.receive_from(boost::asio::buffer(receiveBuffer), senderEndpoint);
 
 		//Output received data
@@ -32,7 +34,7 @@ void UDPClient::run(std::string str)
 		receiveBufferAsString.resize(length);
 		for (unsigned i = 0; i < length; i++)
 			receiveBufferAsString[i] = receiveBuffer[i];
-		console->log("UDPClient::receive buffer: " + receiveBufferAsString);
+		spehs::console::log("UDPClient::receive buffer: " + receiveBufferAsString);
 
 	}
 	catch (std::exception& e)

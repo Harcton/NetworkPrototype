@@ -57,7 +57,7 @@ void TCPDaytimeTutorial::tutorial2(std::string serverName)
 	{
 		boost::asio::io_service ioService;
 		boost::asio::ip::tcp::acceptor acceptor(ioService,
-			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 13));
+			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER));
 
 		std::string message = makeDaytimeString();
 		boost::system::error_code ignoredError;

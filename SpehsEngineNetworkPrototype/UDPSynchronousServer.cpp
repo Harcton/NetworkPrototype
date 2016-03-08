@@ -4,17 +4,18 @@
 #include <SpehsEngine/Console.h>
 #include "UDPSynchronousServer.h"
 #include "MakeDaytimeString.h"
+#include "Network.h"
 
 
 UDPSynchronousServer::UDPSynchronousServer(){}
 UDPSynchronousServer::~UDPSynchronousServer(){}
 void UDPSynchronousServer::run()
 {
-	console->log("Creating synchronous UDP server...");
+	spehs::console::log("Creating synchronous UDP server...");
 	try
 	{
 		boost::asio::io_service ioService;
-		boost::asio::ip::udp::socket socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 13));
+		boost::asio::ip::udp::socket socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER));
 
 		/*Wait for a client to initiate contact with us.
 		The remote_endpoint object will be populated by ip::udp::socket::receive_from(). */
@@ -24,7 +25,7 @@ void UDPSynchronousServer::run()
 			boost::asio::ip::udp::endpoint remoteEndpoint;
 			boost::system::error_code error;
 			socket.receive_from(boost::asio::buffer(receiveBuffer), remoteEndpoint, 0, error);
-			console->log("Sync server: data received");
+			spehs::console::log("Sync server: data received");
 
 			if (error && error != boost::asio::error::message_size)
 				throw boost::system::system_error(error);

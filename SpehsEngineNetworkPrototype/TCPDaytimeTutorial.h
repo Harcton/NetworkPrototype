@@ -7,6 +7,7 @@
 #include <boost/asio/socket_acceptor_service.hpp>
 #include <boost/asio.hpp>
 #include "MakeDaytimeString.h"
+#include "Network.h"
 
 
 class TCPDaytimeTutorial
@@ -79,7 +80,7 @@ public:
 		acceptor(
 			io_service,
 			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(),
-			13))
+			PORT_NUMBER))
 	{
 		startAccept();
 	}

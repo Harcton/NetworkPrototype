@@ -86,6 +86,7 @@
   <ItemGroup>
     <ClInclude Include="Game.h" />
     <ClInclude Include="MakeDaytimeString.h" />
+    <ClInclude Include="Network.h" />
     <ClInclude Include="TCPDaytimeTutorial.h" />
     <ClInclude Include="TimerTutorial.h" />
     <ClInclude Include="UDPAsynchronousServer.h" />

@@ -6,6 +6,7 @@
 #include <SpehsEngine/Console.h>
 #include "UDPAsynchronousServer.h"
 #include "MakeDaytimeString.h"
+#include "Network.h"
 
 UDPAsynchronousServer::UDPAsynchronousServer()
 {
@@ -15,7 +16,7 @@ UDPAsynchronousServer::~UDPAsynchronousServer()
 }
 void UDPAsynchronousServer::run()
 {
-	console->log("Creating asynchronous UDP server...");
+	spehs::console::log("Creating asynchronous UDP server...");
 	try
 	{
 		boost::asio::io_service ioService;
@@ -30,7 +31,7 @@ void UDPAsynchronousServer::run()
 
 
 UDPServer::UDPServer(boost::asio::io_service& io_service) :
-socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), 13))
+socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER))
 {
 	startReceive();
 }
@@ -46,7 +47,7 @@ void UDPServer::handleReceive(const boost::system::error_code& error, std::size_
 {
 	if (!error || error == boost::asio::error::message_size)
 	{
-		console->log("Async server: data received");
+		spehs::console::log("Async server: data received");
 		boost::shared_ptr<std::string> message(new std::string("udpAsyncServer:" + makeDaytimeString()));
 		socket.async_send_to(boost::asio::buffer(*message), remoteEndpoint,
 			boost::bind(&UDPServer::handleSend, this, message,
