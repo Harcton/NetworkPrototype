@@ -34,11 +34,11 @@ public:
 	UDPServer(boost::asio::io_service& io_service);
 
 private:
-	void startReceive();
+	inline void startReceive();
 	void handleReceive(const boost::system::error_code& error, std::size_t bytesTransferred);
 	void handleSend(boost::shared_ptr<std::string> message, const boost::system::error_code& error, std::size_t bytesTransferred);
 
 	boost::asio::ip::udp::socket socket;
-	boost::asio::ip::udp::endpoint remoteEndpoint;
+	boost::asio::ip::udp::endpoint senderEndpoint;
 	boost::array<char, 1> receiveBuffer;
 };

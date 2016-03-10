@@ -12,8 +12,8 @@
 #include "UDPClient.h"
 #include "UDPSynchronousServer.h"
 #include "UDPAsynchronousServer.h"
-
-
+#include "Game.h"
+#include "GameServer.h"
 #include "MakeDaytimeString.h"
 std::string makeDaytimeString()
 {
@@ -30,6 +30,8 @@ UDPAsynchronousServer* asyncUDPServer = nullptr;
 std::thread* asyncUDPServerThread = nullptr;
 UDPClient* udpClientPtr;
 std::thread* udpClientThread;
+GameServer* gameServerPtr;
+std::thread* gameServerThread;
 void udpClient(std::vector<std::string>& words)
 {
 	if (words.size() < 2)
@@ -37,7 +39,7 @@ void udpClient(std::vector<std::string>& words)
 		spehs::console::log("Host not specified!");
 		return;
 	}
-	else if (udpClientPtr)
+	if (udpClientPtr)
 		delClient(words);
 	udpClientPtr = new UDPClient;
 	udpClientThread = new std::thread(boost::bind(&UDPClient::run, udpClientPtr, words[1]));
@@ -72,6 +74,26 @@ void udpAsyncServer(std::vector<std::string>& words)
 	asyncUDPServer = new UDPAsynchronousServer;
 	asyncUDPServerThread = new std::thread(boost::bind(&UDPAsynchronousServer::run, asyncUDPServer));
 }
+void gameServer(std::vector<std::string>& words)
+{
+	if (gameServerPtr || gameServerThread)
+	{
+		spehs::console::log("Game server already running");
+		return;
+	}
+	gameServerPtr = new GameServer();
+	gameServerThread = new std::thread(boost::bind(&GameServer::run, gameServerPtr));
+}
+void game(std::vector<std::string>& words)
+{
+	if (words.size() < 2)
+	{
+		spehs::console::log("Hostname not specified!");
+		return;
+	}
+	Game game(words[1]);
+	game.run();
+}
 void delClient(std::vector<std::string>& words)
 {
 	if (udpClientThread)
@@ -95,7 +117,7 @@ void delServers(std::vector<std::string>& words)
 		syncUDPServerThread = nullptr;
 		syncUDPServer = nullptr;
 	}
-	else if (asyncUDPServer || asyncUDPServerThread)
+	if (asyncUDPServer || asyncUDPServerThread)
 	{
 		spehs::console::log("Stopping asynchronous server");
 		asyncUDPServerThread->detach();
@@ -103,6 +125,15 @@ void delServers(std::vector<std::string>& words)
 		delete asyncUDPServer;
 		asyncUDPServerThread = nullptr;
 		asyncUDPServer = nullptr;
+	}
+	if (gameServerPtr || gameServerThread)
+	{
+		spehs::console::log("Stopping game server");
+		gameServerThread->detach();
+		delete gameServerThread;
+		delete gameServerPtr;
+		gameServerThread = nullptr;
+		gameServerPtr = nullptr;
 	}
 }
 
@@ -119,6 +150,13 @@ void main()
 	spehs::console::addCommand("udpAsyncServer", udpAsyncServer);
 	spehs::console::addCommand("delServers", delServers);
 	spehs::console::addCommand("delClient", delClient);
+	spehs::console::addCommand("gameServer", gameServer);
+	spehs::console::addCommand("game", game);
+	std::vector<std::string> placeholder = {"placeholder"};
+
+	placeholder.push_back("192.162.1.38");
+	gameServer(placeholder);
+	game(placeholder);
 
 	bool run = true;
 	while (run)
@@ -140,7 +178,6 @@ void main()
 		spehs::drawFPS();
 		mainWindow->swapBuffers();
 	}
-	std::vector<std::string> placeholder;
 	delServers(placeholder);
 	delClient(placeholder);
 

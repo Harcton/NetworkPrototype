@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Tutorials">
+      <UniqueIdentifier>{2e0a99ff-c83c-4322-b6d5-5bdc7b6cbb77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Tutorials">
+      <UniqueIdentifier>{2be5c3e0-556f-46ec-ba7c-4ea8c547c30b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp">
@@ -22,18 +28,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TCPDaytimeTutorial.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Tutorials</Filter>
     </ClCompile>
     <ClCompile Include="TimerTutorial.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="UDPClient.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="UDPSynchronousServer.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Tutorials</Filter>
     </ClCompile>
     <ClCompile Include="UDPAsynchronousServer.cpp">
+      <Filter>Source Files\Tutorials</Filter>
+    </ClCompile>
+    <ClCompile Include="UDPClient.cpp">
+      <Filter>Source Files\Tutorials</Filter>
+    </ClCompile>
+    <ClCompile Include="UDPSynchronousServer.cpp">
+      <Filter>Source Files\Tutorials</Filter>
+    </ClCompile>
+    <ClCompile Include="GameServer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -41,25 +50,28 @@
     <ClInclude Include="Game.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Network.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="TCPDaytimeTutorial.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="TimerTutorial.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UDPClient.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UDPSynchronousServer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="UDPAsynchronousServer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Tutorials</Filter>
     </ClInclude>
     <ClInclude Include="MakeDaytimeString.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Network.h">
+    <ClInclude Include="TimerTutorial.h">
+      <Filter>Header Files\Tutorials</Filter>
+    </ClInclude>
+    <ClInclude Include="UDPAsynchronousServer.h">
+      <Filter>Header Files\Tutorials</Filter>
+    </ClInclude>
+    <ClInclude Include="UDPClient.h">
+      <Filter>Header Files\Tutorials</Filter>
+    </ClInclude>
+    <ClInclude Include="UDPSynchronousServer.h">
+      <Filter>Header Files\Tutorials</Filter>
+    </ClInclude>
+    <ClInclude Include="GameServer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

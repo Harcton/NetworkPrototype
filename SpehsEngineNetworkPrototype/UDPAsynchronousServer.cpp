@@ -38,18 +38,22 @@ socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PO
 void UDPServer::startReceive()
 {
 	socket.async_receive_from(
-		boost::asio::buffer(receiveBuffer), remoteEndpoint,
+		boost::asio::buffer(receiveBuffer), senderEndpoint,
 		boost::bind(&UDPServer::handleReceive, this,
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
 void UDPServer::handleReceive(const boost::system::error_code& error, std::size_t bytesTransferred)
 {
+	//Start receiving again
+	startReceive();
+
 	if (!error || error == boost::asio::error::message_size)
 	{
-		spehs::console::log("Async server: data received");
-		boost::shared_ptr<std::string> message(new std::string("udpAsyncServer:" + makeDaytimeString()));
-		socket.async_send_to(boost::asio::buffer(*message), remoteEndpoint,
+		if (LOG_NETWORK)
+			spehs::console::log("Async server: data received");
+		boost::shared_ptr<std::string> message(new std::string("Async server:" + makeDaytimeString()));
+		socket.async_send_to(boost::asio::buffer(*message), senderEndpoint,
 			boost::bind(&UDPServer::handleSend, this, message,
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred));
@@ -57,5 +61,6 @@ void UDPServer::handleReceive(const boost::system::error_code& error, std::size_
 }
 void UDPServer::handleSend(boost::shared_ptr<std::string> message, const boost::system::error_code& error, std::size_t bytesTransferred)
 {
-
+	if (LOG_NETWORK)
+		spehs::console::log("Async server: Handle send called");
 }
