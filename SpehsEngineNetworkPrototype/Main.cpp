@@ -20,6 +20,7 @@ std::string makeDaytimeString()
 	std::time_t now = std::time(0);
 	return std::ctime(&now);
 }
+int loopState = 1;
 
 
 ///CONSOLE COMMANDS
@@ -32,6 +33,8 @@ UDPClient* udpClientPtr;
 std::thread* udpClientThread;
 GameServer* gameServerPtr;
 std::thread* gameServerThread;
+Game* gamePtr;
+std::thread* gameThread;
 void udpClient(std::vector<std::string>& words)
 {
 	if (words.size() < 2)
@@ -81,6 +84,7 @@ void gameServer(std::vector<std::string>& words)
 		spehs::console::log("Game server already running");
 		return;
 	}
+	spehs::console::log("Creating game server...");
 	gameServerPtr = new GameServer();
 	gameServerThread = new std::thread(boost::bind(&GameServer::run, gameServerPtr));
 }
@@ -91,8 +95,14 @@ void game(std::vector<std::string>& words)
 		spehs::console::log("Hostname not specified!");
 		return;
 	}
-	Game game(words[1]);
-	game.run();
+	if (gamePtr || gameThread)
+	{
+		spehs::console::log("Game already running");
+		return;
+	}
+	gamePtr = new Game("91.152.219.117");
+	//gamePtr = new Game(words[1]);
+	loopState = 2;
 }
 void delClient(std::vector<std::string>& words)
 {
@@ -154,30 +164,52 @@ void main()
 	spehs::console::addCommand("game", game);
 	std::vector<std::string> placeholder = {"placeholder"};
 
-	placeholder.push_back("192.162.1.38");
-	gameServer(placeholder);
-	game(placeholder);
-
-	bool run = true;
-	while (run)
+	//placeholder.push_back("192.162.1.38");
+	placeholder.push_back("91.152.219.117");
+	if (1)
 	{
-		mainWindow->clearBuffer();
-		spehs::beginFPS();
-
-
-		//Update
-		spehs::console::update();
-		inputManager->update();
-		if (inputManager->isKeyDown(KEYBOARD_ESCAPE))
-			run = false;
-
-		//Render
-		spehs::console::render();
-
-		spehs::endFPS();
-		spehs::drawFPS();
-		mainWindow->swapBuffers();
+		//gameServer(placeholder);
+		//game(placeholder);
 	}
+	else
+	{
+		udpAsyncServer(placeholder);
+		udpClient(placeholder);
+	}
+
+	while (loopState != 0)
+	{
+		
+		while (loopState == 1)
+		{//Display and loop plain console
+
+			mainWindow->clearBuffer();
+			spehs::beginFPS();
+
+
+			//Update
+			spehs::console::update();
+			inputManager->update();
+			if (inputManager->isKeyDown(KEYBOARD_ESCAPE))
+				loopState = 0;
+
+			//Render
+			spehs::console::render();
+
+			spehs::endFPS();
+			spehs::drawFPS();
+			mainWindow->swapBuffers();
+		}
+
+		while (loopState == 2)
+		{//Run the game
+			gamePtr->run();
+			delete gamePtr;
+			gamePtr = nullptr;
+			loopState = 1;
+		}
+	}
+
 	delServers(placeholder);
 	delClient(placeholder);
 

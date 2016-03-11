@@ -7,19 +7,23 @@
 #include <SpehsEngine/Console.h>
 #include <SpehsEngine/Time.h>
 #include "GameServer.h"
-#include "Network.h"
 #include "MakeDaytimeString.h"
 
 
-GameServer::GameServer() : socket(ioService)
+GameServer::GameServer() :
+socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER)),
+objectData{}
 {
 }
 GameServer::~GameServer()
 {
+	for (unsigned i = 0; i < objects.size(); i++)
+		delete objects[i];
 }
 void GameServer::run()
 {
 	startReceive();
+	ioService.run();
 }
 void GameServer::startReceive()
 {
@@ -35,44 +39,103 @@ void GameServer::handleReceive(const boost::system::error_code& error, std::size
 	{
 		if (LOG_NETWORK)
 			spehs::console::log("Game server: data received");
-
-		//Manage received data
-		bool newPlayer = true;
-		Player* player = nullptr;
-		for (unsigned i = 0; i < players.size(); i++)
+		
+		unsigned char type;
+		memcpy(&type, &receiveBuffer[0], sizeof(unsigned char));
+		switch (type)
 		{
-			if (players[i].address == playerEndpoint.address())
-			{
-				player = &players[i];
-				newPlayer = false;
-				break;
-			}
+		default:
+		case packet::invalid:
+			spehs::console::error("Server: packet with invalid packet type received!");
+		case packet::enter:
+			receiveEnter();
+			break;
+		case packet::exit:
+			receiveExit();
+			break;
+		case packet::update:
+			receiveUpdate();
+			break;
 		}
-		if (newPlayer)
-		{
-			players.push_back(Player());
-			players.back().address = playerEndpoint.address();
-			player = &players.back();
-		}
-
-		size_t offset = 0;
-		memcpy(&player->position[0], &receiveBuffer[0] + offset, sizeof(int));
-		offset += sizeof(int16_t);
-		memcpy(&player->position[1], &receiveBuffer[0] + offset, sizeof(int));
-		offset += sizeof(int16_t);
-
-		socket.async_send_to(boost::asio::buffer(players, players.size()), playerEndpoint,
-			boost::bind(&GameServer::handleSend, this,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred));
-
 	}
 
 	//Start receiving again
 	startReceive();
 }
-void GameServer::handleSend(const boost::system::error_code& error, std::size_t bytesTransferred)
+void GameServer::receiveEnter()
 {
-	if (LOG_NETWORK)
-		spehs::console::log("Game server: Handle send called");
+	clients.push_back(Client());
+	if (clients.size() > 1)
+		clients.back().ID = clients[clients.size() - 2].ID + 1;//Take next ID
+	else
+		clients.back().ID = 1;
+	spehs::console::log("Client " + std::to_string(clients.back().ID) + " [" + playerEndpoint.address().to_string() + "] entered the game");
+	
+	//Create object for player
+	objects.push_back(new Object());
+	objects.back()->ID = clients.back().ID;
+
+	//Send ID back to client
+	boost::array<int16_t, 1> answerID = { clients.back().ID };
+	socket.send_to(boost::asio::buffer(answerID), playerEndpoint);
+}
+void GameServer::receiveExit()
+{
+	boost::array<unsigned char, 1> answer = { 1 };
+	int16_t exitID;
+	memcpy(&exitID, &receiveBuffer[1], sizeof(int16_t));
+	socket.send_to(boost::asio::buffer(answer), playerEndpoint);
+
+	for (unsigned i = 0; i < clients.size(); i++)
+	{
+		if (clients[i].ID == exitID)
+		{
+			spehs::console::log("Client " + std::to_string(clients[i].ID) + "[" + playerEndpoint.address().to_string() + "] exited the game");
+			clients.erase(clients.begin() + i);
+			break;
+		}
+	}
+	for (unsigned i = 0; i < objects.size(); i++)
+	{
+		if (objects[i]->ID == exitID)
+		{
+			delete objects[i];
+			objects.erase(objects.begin() + i);
+			break;
+		}
+	}
+}
+void GameServer::receiveUpdate()
+{
+	//Mem copy so that packet becomes more readable...
+	memcpy(&playerStateDataBuffer[0], &receiveBuffer[0], sizeof(PlayerStateData));
+
+	//Do something to objects with player input
+	for (unsigned i = 0; i < objects.size(); i++)
+	{
+		if (objects[i]->ID == playerStateDataBuffer[0].ID)
+		{
+			objects[i]->x = playerStateDataBuffer[0].mouseX;
+			objects[i]->y = playerStateDataBuffer[0].mouseY;
+			spehs::console::log(
+				"Object " + std::to_string(objects[i]->ID) + " position: " +
+				std::to_string(objects[i]->x) + ", " + std::to_string(objects[i]->y));
+			break;
+		}
+	}
+
+	//Send return packet (object data) back to player
+	//Write object count
+	unsigned objectCount = objects.size();
+	memcpy(&objectData[0], &objectCount, sizeof(unsigned));
+	//Write objects
+	size_t offset = sizeof(unsigned);
+	for (unsigned i = 0; i < objects.size(); i++)
+	{
+		memcpy(&objectData[0] + offset, objects[i], sizeof(ObjectData));
+		offset += sizeof(ObjectData);
+	}
+	socket.send_to(boost::asio::buffer(objectData), playerEndpoint);
+
+
 }

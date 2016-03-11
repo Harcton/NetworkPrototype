@@ -7,43 +7,55 @@
 #include <SpehsEngine/InputManager.h>
 #include <SpehsEngine/Console.h>
 #include "Game.h"
-#include "Network.h"
 
-Game::Game(std::string hostName) : resolver(ioService), socket(ioService),
+Game::Game(std::string hostName) : resolver(ioService), socket(ioService), state(0),
 	query(boost::asio::ip::udp::v4(), hostName, std::to_string(PORT_NUMBER))
 {
-	serverEndpoint = *resolver.resolve(query);
-	socket.open(boost::asio::ip::udp::v4());
-	socket.async_connect(serverEndpoint, boost::bind(&Game::connectHandler, this, boost::asio::placeholders::error));
 }
 Game::~Game()
 {
 }
+void Game::exitGame()
+{
+	enableBit(state, GAME_EXIT_BIT);
+	boost::array<unsigned char, 3> exitPacket;
+	exitPacket[0] = packet::exit;
+	memcpy(&exitPacket[1], &ID, sizeof(int16_t));
+	socket.send(boost::asio::buffer(exitPacket));
+	socket.receive(boost::asio::buffer(receiveBuffer));//TODO: make sure that server gets exit message
+}
 void Game::run()
 {
+	serverEndpoint = *resolver.resolve(query);
+	socket.open(boost::asio::ip::udp::v4());
+	socket.async_connect(serverEndpoint, boost::bind(&Game::connectHandler, this, boost::asio::placeholders::error));
 
+	boost::array<unsigned char, 1> enterPacket = { packet::enter };
+	socket.send(boost::asio::buffer(enterPacket));
+	socket.receive(boost::asio::buffer(receiveBuffer));//TODO: if server response doens't get back, resend
+	memcpy(&ID, &receiveBuffer[0], sizeof(int16_t));//Receive my ID from server
 
-
-	bool run = true;
-	while (run)
+	while (!(checkBit(state, GAME_EXIT_BIT)))
 	{
 		mainWindow->clearBuffer();
 		spehs::beginFPS();
 
-
 		//Update
 		spehs::console::update();
 		inputManager->update();
-		if (inputManager->isKeyDown(KEYBOARD_ESCAPE))
-			run = false;
 		update();
 
 		//Render
+		for (unsigned i = 0; i < objectVisuals.size(); i++)
+			objectVisuals[i].polygon.draw();
 		spehs::console::render();
 
 		spehs::endFPS();
 		spehs::drawFPS();
 		mainWindow->swapBuffers();
+
+		if (inputManager->isKeyDown(KEYBOARD_Q))
+			exitGame();
 	}
 }
 void Game::connectHandler(const boost::system::error_code& error)
@@ -52,19 +64,41 @@ void Game::connectHandler(const boost::system::error_code& error)
 }
 void Game::update()
 {
-	int16_t x = inputManager->getMouseX();
-	int16_t y = inputManager->getMouseY();
-	size_t offset = 0;//Byte offset
+	std::array<PlayerStateData, 1> playerStateData;
 
-	memcpy(&sendBuffer[0] + offset, &x, sizeof(x));
-	offset += sizeof(x);
-	memcpy(&sendBuffer[0] + offset, &y, sizeof(y));
-	offset += sizeof(y);
+	//Gather state contents
+	playerStateData[0].mouseX = inputManager->getMouseX();
+	playerStateData[0].mouseY = inputManager->getMouseY();
 
-	socket.send(boost::asio::buffer(sendBuffer));
+	//Synchronous update send/receive state data
+	socket.send(boost::asio::buffer(playerStateData));
 	socket.receive(boost::asio::buffer(receiveBuffer));
-	spehs::console::log("Game received data size: " + std::to_string(receiveBuffer.size()));
-	//socket.async_receive(boost::asio::buffer(receiveBuffer), boost::bind(&Game::receiveUpdate, this, boost::asio::placeholders::error));
+	
+	unsigned objectCount;
+	memcpy(&objectCount, &receiveBuffer[0], sizeof(unsigned));
+	size_t offset = sizeof(objectCount);
+	ObjectData objectData;//Temp location
+	for (unsigned i = 0; i < objectCount; i++)
+	{
+		memcpy(&objectData, &receiveBuffer[0] + offset, sizeof(ObjectData));
+		offset += sizeof(ObjectData);
+		bool found = false;
+		for (unsigned o = 0; o < objectVisuals.size(); o++)
+		{
+			if (objectVisuals[i].ID == objectData.ID)
+			{
+				objectVisuals[i].polygon.setPosition(objectData.x, objectData.y);
+				found = true;
+				break;
+			}
+		}
+		if (!found)
+		{
+			objectVisuals.push_back(ObjectVisual());
+			objectVisuals.back().ID = objectData.ID;
+			objectVisuals.back().polygon.setPosition(objectData.x, objectData.y);
+		}
+	}
 }
 void Game::receiveUpdate(const boost::system::error_code& error)
 {
