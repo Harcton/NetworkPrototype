@@ -73,8 +73,14 @@ void Game::update()
 
 	//Synchronous update send/receive state data
 	socket.send(boost::asio::buffer(playerStateData));
-	socket.receive_from(boost::asio::buffer(receiveBuffer), serverEndpoint);
-	
+	socket.async_receive_from(
+		boost::asio::buffer(receiveBuffer), serverEndpoint,
+		boost::bind(&Game::receiveUpdate, this,
+			boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
+}
+void Game::receiveUpdate(const boost::system::error_code& error, std::size_t bytesTransferred)
+{
 	unsigned objectCount;
 	memcpy(&objectCount, &receiveBuffer[0], sizeof(unsigned));
 	size_t offset = sizeof(objectCount);
@@ -100,8 +106,4 @@ void Game::update()
 			objectVisuals.back().polygon.setPosition(objectData.x, objectData.y);
 		}
 	}
-}
-void Game::receiveUpdate(const boost::system::error_code& error)
-{
-
 }

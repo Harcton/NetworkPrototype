@@ -45,7 +45,7 @@ public:
 private:
 	void connectHandler(const boost::system::error_code& error);
 	void update();
-	void receiveUpdate(const boost::system::error_code& error);
+	void receiveUpdate(const boost::system::error_code& error, std::size_t bytesTransferred);
 
 	//Misc
 	int16_t state;

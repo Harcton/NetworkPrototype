@@ -163,17 +163,33 @@ void main()
 	spehs::console::addCommand("game", game);
 	std::vector<std::string> placeholder = {"placeholder"};
 
-	//placeholder.push_back("192.162.1.233");
-	placeholder.push_back("85.29.96.209");
-	if (1)
+	switch (1)
 	{
-		//gameServer(placeholder);
-		//game(placeholder);
-	}
-	else
-	{
+	default:break;
+	case 1:
+		/*Server never receives enter, unless typed ingame console...?*/
+		placeholder.push_back("192.162.1.233");
+		gameServer(placeholder);
+		Sleep(6500);
+		game(placeholder);
+		break;
+	case 2:
+		/*Client never receives update back*/
+		placeholder.push_back("85.29.96.209");
+		gameServer(placeholder);
+		Sleep(500);
+		game(placeholder);
+		break;
+	case 11:
+		placeholder.push_back("192.162.1.233");
 		udpAsyncServer(placeholder);
 		udpClient(placeholder);
+		break;
+	case 12:
+		placeholder.push_back("85.29.96.209");
+		udpAsyncServer(placeholder);
+		udpClient(placeholder);
+		break;
 	}
 
 	while (loopState != 0)

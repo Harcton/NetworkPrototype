@@ -50,8 +50,7 @@ private:
 	//Asio
 	boost::asio::io_service ioService;
 	boost::asio::ip::udp::socket socket;
-	boost::asio::ip::udp::endpoint myEndpoint;
-	boost::asio::ip::udp::endpoint playerEndpoint;
+	boost::asio::ip::udp::endpoint senderEndpoint;
 
 	//Data
 	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBuffer;

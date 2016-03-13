@@ -3,7 +3,7 @@
 #define SERVER_SIZE 5
 #define PORT_NUMBER 41624
 #define LOG_NETWORK true
-#define UDP_DATAGRAM_MAX 16//65527
+#define UDP_DATAGRAM_MAX 1024//65527
 //41624
 //13
 namespace packet

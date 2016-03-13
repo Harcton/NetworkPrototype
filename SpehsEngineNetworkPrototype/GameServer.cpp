@@ -28,7 +28,7 @@ void GameServer::run()
 void GameServer::startReceive()
 {
 	socket.async_receive_from(
-		boost::asio::buffer(receiveBuffer), playerEndpoint,
+		boost::asio::buffer(receiveBuffer), senderEndpoint,
 		boost::bind(&GameServer::handleReceive, this,
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
@@ -47,6 +47,7 @@ void GameServer::handleReceive(const boost::system::error_code& error, std::size
 		default:
 		case packet::invalid:
 			spehs::console::error("Server: packet with invalid packet type received!");
+			break;
 		case packet::enter:
 			receiveEnter();
 			break;
@@ -69,7 +70,7 @@ void GameServer::receiveEnter()
 		clients.back().ID = clients[clients.size() - 2].ID + 1;//Take next ID
 	else
 		clients.back().ID = 1;
-	spehs::console::log("Client " + std::to_string(clients.back().ID) + " [" + playerEndpoint.address().to_string() + "] entered the game");
+	spehs::console::log("Client " + std::to_string(clients.back().ID) + " [" + senderEndpoint.address().to_string() + "] entered the game");
 	
 	//Create object for player
 	objects.push_back(new Object());
@@ -77,20 +78,20 @@ void GameServer::receiveEnter()
 
 	//Send ID back to client
 	boost::array<int16_t, 1> answerID = { clients.back().ID };
-	socket.send_to(boost::asio::buffer(answerID), playerEndpoint);
+	socket.send_to(boost::asio::buffer(answerID), senderEndpoint);
 }
 void GameServer::receiveExit()
 {
 	boost::array<unsigned char, 1> answer = { 1 };
 	int16_t exitID;
 	memcpy(&exitID, &receiveBuffer[1], sizeof(int16_t));
-	socket.send_to(boost::asio::buffer(answer), playerEndpoint);
+	socket.send_to(boost::asio::buffer(answer), senderEndpoint);
 
 	for (unsigned i = 0; i < clients.size(); i++)
 	{
 		if (clients[i].ID == exitID)
 		{
-			spehs::console::log("Client " + std::to_string(clients[i].ID) + "[" + playerEndpoint.address().to_string() + "] exited the game");
+			spehs::console::log("Client " + std::to_string(clients[i].ID) + "[" + senderEndpoint.address().to_string() + "] exited the game");
 			clients.erase(clients.begin() + i);
 			break;
 		}
@@ -135,6 +136,6 @@ void GameServer::receiveUpdate()
 		memcpy(&objectData[0] + offset, objects[i], sizeof(ObjectData));
 		offset += sizeof(ObjectData);
 	}
-	socket.send_to(boost::asio::buffer(objectData), playerEndpoint);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
+	socket.send_to(boost::asio::buffer(objectData), senderEndpoint);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
 
 }
