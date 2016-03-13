@@ -90,18 +90,17 @@ void gameServer(std::vector<std::string>& words)
 }
 void game(std::vector<std::string>& words)
 {
-	if (words.size() < 2)
-	{
-		spehs::console::log("Hostname not specified!");
-		return;
-	}
 	if (gamePtr || gameThread)
 	{
 		spehs::console::log("Game already running");
 		return;
 	}
-	gamePtr = new Game("91.152.219.117");
-	//gamePtr = new Game(words[1]);
+	if (words.size() < 2)
+	{
+		spehs::console::log("Hostname not specified!");
+		return;
+	}
+	gamePtr = new Game(words[1]);
 	loopState = 2;
 }
 void delClient(std::vector<std::string>& words)
@@ -164,8 +163,8 @@ void main()
 	spehs::console::addCommand("game", game);
 	std::vector<std::string> placeholder = {"placeholder"};
 
-	//placeholder.push_back("192.162.1.38");
-	placeholder.push_back("91.152.219.117");
+	//placeholder.push_back("192.162.1.233");
+	placeholder.push_back("85.29.96.209");
 	if (1)
 	{
 		//gameServer(placeholder);

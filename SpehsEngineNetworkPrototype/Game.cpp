@@ -67,12 +67,13 @@ void Game::update()
 	std::array<PlayerStateData, 1> playerStateData;
 
 	//Gather state contents
+	playerStateData[0].ID = ID;
 	playerStateData[0].mouseX = inputManager->getMouseX();
 	playerStateData[0].mouseY = inputManager->getMouseY();
 
 	//Synchronous update send/receive state data
 	socket.send(boost::asio::buffer(playerStateData));
-	socket.receive(boost::asio::buffer(receiveBuffer));
+	socket.receive_from(boost::asio::buffer(receiveBuffer), serverEndpoint);
 	
 	unsigned objectCount;
 	memcpy(&objectCount, &receiveBuffer[0], sizeof(unsigned));

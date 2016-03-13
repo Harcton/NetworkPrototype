@@ -135,7 +135,6 @@ void GameServer::receiveUpdate()
 		memcpy(&objectData[0] + offset, objects[i], sizeof(ObjectData));
 		offset += sizeof(ObjectData);
 	}
-	socket.send_to(boost::asio::buffer(objectData), playerEndpoint);
-
+	socket.send_to(boost::asio::buffer(objectData), playerEndpoint);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
 
 }
