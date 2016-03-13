@@ -1,8 +1,9 @@
 #pragma once
 #include <stdint.h>
 #define SERVER_SIZE 5
-#define PORT_NUMBER 41624
-#define LOG_NETWORK true
+#define PORT_NUMBER_TCP 41624
+#define PORT_NUMBER_UDP 41625
+#define LOG_NETWORK false
 #define UDP_DATAGRAM_MAX 1024//65527
 //41624
 //13
@@ -26,7 +27,7 @@ struct PlayerStateData
 {
 	PlayerStateData() : type(packet::update){}
 	unsigned char type;
-	int16_t ID;
+	uint32_t ID;
 
 	//Input data
 	int16_t mouseX;
@@ -34,7 +35,7 @@ struct PlayerStateData
 };
 struct ObjectData
 {
-	int16_t ID;
+	uint32_t ID;
 	int16_t x;
 	int16_t y;
 };

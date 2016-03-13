@@ -15,7 +15,7 @@ void UDPSynchronousServer::run()
 	try
 	{
 		boost::asio::io_service ioService;
-		boost::asio::ip::udp::socket socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER));
+		boost::asio::ip::udp::socket socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER_UDP));
 
 		/*Wait for a client to initiate contact with us.
 		The remote_endpoint object will be populated by ip::udp::socket::receive_from(). */

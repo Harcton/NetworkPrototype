@@ -32,13 +32,13 @@ public:
 
 
 //Tutorial 3
-class TCPConnection : public boost::enable_shared_from_this<TCPConnection>
+class TCPConnectionTut : public boost::enable_shared_from_this<TCPConnectionTut>
 {
 public:
-	typedef boost::shared_ptr<TCPConnection> pointer;
+	typedef boost::shared_ptr<TCPConnectionTut> pointer;
 	static pointer create(boost::asio::io_service& ioService)
 	{
-		return pointer(new TCPConnection(ioService));
+		return pointer(new TCPConnectionTut(ioService));
 	}
 	boost::asio::ip::tcp::socket& getSocketRef()
 	{
@@ -58,14 +58,14 @@ public:
 		boost::asio::placeholders::bytes_transferred) could potentially have been removed,
 		since they are not being used in handle_write(). */
 		boost::asio::async_write(socket, boost::asio::buffer(message),
-			boost::bind(&TCPConnection::handleWrite, shared_from_this()/*,
+			boost::bind(&TCPConnectionTut::handleWrite, shared_from_this()/*,
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred*/));
 		/*Any further actions for this client connection are now the responsibility of handle_write().*/
 	}
 
 private:
-	TCPConnection(boost::asio::io_service& ioService) : socket(ioService){}
+	TCPConnectionTut(boost::asio::io_service& ioService) : socket(ioService){}
 	void handleWrite(/*const boost::system::error_code& error, size_t bytesTransferred*/)
 	{
 	}
@@ -80,13 +80,13 @@ public:
 		acceptor(
 			io_service,
 			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(),
-			PORT_NUMBER))
+			PORT_NUMBER_TCP))
 	{
 		startAccept();
 	}
 	void startAccept()
 	{
-		TCPConnection::pointer newConnection = TCPConnection::create(acceptor.get_io_service());
+		TCPConnectionTut::pointer newConnection = TCPConnectionTut::create(acceptor.get_io_service());
 		acceptor.async_accept(newConnection->getSocketRef(),
 			boost::bind(&TCPServer::handleAccept, this, newConnection,
 			boost::asio::placeholders::error));
@@ -94,7 +94,7 @@ public:
 
 	/*The function handle_accept() is called when the asynchronous accept operation initiated by start_accept() finishes.
 	It services the client request, and then calls start_accept() to initiate the next accept operation. */
-	void handleAccept(TCPConnection::pointer newConnection,
+	void handleAccept(TCPConnectionTut::pointer newConnection,
 		const boost::system::error_code& error)
 	{
 		if (!error)

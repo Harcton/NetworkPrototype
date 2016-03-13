@@ -7,6 +7,7 @@
 #include <boost/asio/socket_base.hpp>
 #include <boost/array.hpp>
 #include <boost/asio/ip/udp.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include "Network.h"
 #define GAME_EXIT_BIT 0x0001
 
@@ -43,7 +44,6 @@ public:
 	void exitGame();
 
 private:
-	void connectHandler(const boost::system::error_code& error);
 	void update();
 	void receiveUpdate(const boost::system::error_code& error, std::size_t bytesTransferred);
 
@@ -53,11 +53,17 @@ private:
 
 	//Asio
 	boost::asio::io_service ioService;
-	boost::asio::ip::udp::socket socket;
-	boost::asio::ip::udp::endpoint myEndpoint;
-	boost::asio::ip::udp::endpoint serverEndpoint;
-	boost::asio::ip::udp::resolver resolver;
-	boost::asio::ip::udp::resolver::query query;
+	//TCP
+	boost::asio::ip::tcp::socket socketTCP;
+	boost::asio::ip::tcp::resolver resolverTCP;
+	boost::asio::ip::tcp::resolver::query queryTCP;
+	boost::asio::ip::tcp::endpoint serverEndpointTCP;
+	//UDP
+	boost::asio::ip::udp::socket socketUDP;
+	boost::asio::ip::udp::endpoint myEndpointUDP;
+	boost::asio::ip::udp::endpoint serverEndpointUDP;
+	boost::asio::ip::udp::resolver resolverUDP;
+	boost::asio::ip::udp::resolver::query queryUDP;
 
 	//Data
 	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBuffer;

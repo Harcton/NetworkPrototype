@@ -1,3 +1,4 @@
+#include <iostream>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/bind.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -8,9 +9,15 @@
 #include <SpehsEngine/Console.h>
 #include "Game.h"
 
-Game::Game(std::string hostName) : resolver(ioService), socket(ioService), state(0),
-	query(boost::asio::ip::udp::v4(), hostName, std::to_string(PORT_NUMBER))
+Game::Game(std::string hostName) :  state(0),
+	resolverTCP(ioService),
+	socketTCP(ioService),
+	queryTCP(hostName, std::to_string(PORT_NUMBER_TCP)),
+	resolverUDP(ioService),
+	socketUDP(ioService),
+	queryUDP(boost::asio::ip::udp::v4(), hostName, std::to_string(PORT_NUMBER_UDP))
 {
+
 }
 Game::~Game()
 {
@@ -18,24 +25,56 @@ Game::~Game()
 void Game::exitGame()
 {
 	enableBit(state, GAME_EXIT_BIT);
-	boost::array<unsigned char, 3> exitPacket;
+	boost::array<unsigned char, 1> exitPacket;
 	exitPacket[0] = packet::exit;
-	memcpy(&exitPacket[1], &ID, sizeof(int16_t));
-	socket.send(boost::asio::buffer(exitPacket));
-	socket.receive(boost::asio::buffer(receiveBuffer));//TODO: make sure that server gets exit message
+	socketTCP.send(boost::asio::buffer(exitPacket));
 }
 void Game::run()
 {
-	serverEndpoint = *resolver.resolve(query);
-	socket.open(boost::asio::ip::udp::v4());
-	socket.async_connect(serverEndpoint, boost::bind(&Game::connectHandler, this, boost::asio::placeholders::error));
 
-	boost::array<unsigned char, 1> enterPacket = { packet::enter };
-	socket.send(boost::asio::buffer(enterPacket));
-	socket.receive(boost::asio::buffer(receiveBuffer));//TODO: if server response doens't get back, resend
-	memcpy(&ID, &receiveBuffer[0], sizeof(int16_t));//Receive my ID from server
+	//Connect TCP
+	bool connected = false;
+	do
+	{
+		try
+		{
+			serverEndpointTCP = *resolverTCP.resolve(queryTCP);
+			socketTCP.open(boost::asio::ip::tcp::v4());
+			socketTCP.connect(serverEndpointTCP);
 
-	while (!(checkBit(state, GAME_EXIT_BIT)))
+			//Send enter packet to server
+			boost::array<unsigned char, 1> enterPacket = { packet::enter };
+			socketTCP.send(boost::asio::buffer(enterPacket));
+			socketTCP.receive(boost::asio::buffer(receiveBuffer));
+			memcpy(&ID, &receiveBuffer[0], sizeof(uint32_t));//Receive ID from server
+
+			connected = true;
+		}
+		catch (std::exception& e)
+		{
+			std::cout << "\n" << e.what();
+		}
+	} while (!connected);
+
+	//Connect UDP
+	connected = false;
+	do
+	{
+		try
+		{
+			serverEndpointUDP = *resolverUDP.resolve(queryUDP);
+			socketUDP.open(boost::asio::ip::udp::v4());
+			socketUDP.connect(serverEndpointUDP);
+			connected = true;
+		}
+		catch (std::exception& e)
+		{
+			std::cout << "\n" << e.what();
+		}
+	} while (!connected);
+	
+
+	while (!checkBit(state, GAME_EXIT_BIT))
 	{
 		mainWindow->clearBuffer();
 		spehs::beginFPS();
@@ -58,10 +97,6 @@ void Game::run()
 			exitGame();
 	}
 }
-void Game::connectHandler(const boost::system::error_code& error)
-{
-
-}
 void Game::update()
 {
 	std::array<PlayerStateData, 1> playerStateData;
@@ -72,9 +107,9 @@ void Game::update()
 	playerStateData[0].mouseY = inputManager->getMouseY();
 
 	//Synchronous update send/receive state data
-	socket.send(boost::asio::buffer(playerStateData));
-	socket.async_receive_from(
-		boost::asio::buffer(receiveBuffer), serverEndpoint,
+	socketUDP.send(boost::asio::buffer(playerStateData));
+	socketUDP.async_receive_from(
+		boost::asio::buffer(receiveBuffer), serverEndpointUDP,
 		boost::bind(&Game::receiveUpdate, this,
 			boost::asio::placeholders::error,
 			boost::asio::placeholders::bytes_transferred));

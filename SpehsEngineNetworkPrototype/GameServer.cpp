@@ -1,7 +1,7 @@
 #include <boost/bind.hpp>
 #include <boost/asio/buffer.hpp>
-#include <boost/asio/socket_base.hpp>
 #include <boost/asio/ip/udp.hpp>
+#include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/placeholders.hpp>
 #include <boost/shared_ptr.hpp>
 #include <SpehsEngine/Console.h>
@@ -9,12 +9,40 @@
 #include "GameServer.h"
 #include "MakeDaytimeString.h"
 
+Client::Client(boost::asio::io_service& io, GameServer& s) : socket(io), server(s){}
+void Client::startReceiveTCP()
+{
+	socket.async_receive(boost::asio::buffer(receiveBuffer), boost::bind(&Client::receiveHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+}
+void Client::receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred)
+{
+	if (bytesTransferred < 1)
+		return;//Must have transferred at least 1 byte (packet type)
+	if (error)
+		return;//TODO
+
+	bool restartToReceive = true;
+	switch (receiveBuffer[0])
+	{
+	default:
+		spehs::console::warning("Client" + std::to_string(ID) + " received invalid packet type (TCP)!");
+		break;
+	case packet::enter:
+		break;
+	case packet::exit:
+		server.clientExit(ID);
+		restartToReceive = false;
+		break;
+	}
+
+	if (restartToReceive)
+		startReceiveTCP();
+}
 
 GameServer::GameServer() :
-socket(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER)),
-objectData{}
-{
-}
+	acceptorTCP(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER_TCP)),
+	socketUDP(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER_UDP)),
+	objectDataUDP{}{}
 GameServer::~GameServer()
 {
 	for (unsigned i = 0; i < objects.size(); i++)
@@ -22,18 +50,77 @@ GameServer::~GameServer()
 }
 void GameServer::run()
 {
-	startReceive();
+	startReceiveTCP();
+	startReceiveUDP();
 	ioService.run();
 }
-void GameServer::startReceive()
+
+
+void GameServer::startReceiveTCP()
 {
-	socket.async_receive_from(
-		boost::asio::buffer(receiveBuffer), senderEndpoint,
-		boost::bind(&GameServer::handleReceive, this,
+	clients.push_back(Client::create(ioService, *this));
+	//Give an ID for the client
+	if (clients.size() > 1)
+		clients.back()->ID = clients[clients.size() - 2]->ID + 1;//Take next ID
+	else
+		clients.back()->ID = 1;
+
+	acceptorTCP.async_accept(clients.back()->socket, boost::bind(&GameServer::handleAcceptClient, this, clients.back(), boost::asio::placeholders::error));
+}
+void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boost::system::error_code& error)
+{
+	spehs::console::log("Client " + std::to_string(clients.back()->ID) + " [" + clients.back()->socket.remote_endpoint().address().to_string() + "] entered the game");
+	
+	//Create object for player
+	objects.push_back(new Object());
+	objects.back()->ID = clients.back()->ID;
+
+	//Send ID back to client
+	boost::array<uint32_t, 1> answerID = { clients.back()->ID };
+	clients.back()->socket.send(boost::asio::buffer(answerID));
+
+	//Start receiving again
+	clients.back()->startReceiveTCP();
+	startReceiveTCP();
+}
+void GameServer::clientExit(uint32_t ID)
+{
+	for (unsigned i = 0; i < clients.size(); i++)
+	{
+		if (clients[i]->ID == ID)
+		{
+			spehs::console::log("Client " + std::to_string(clients[i]->ID) + "[" + clients[i]->socket.remote_endpoint().address().to_string() + "] exited the game");
+			clients.erase(clients.begin() + i);
+			break;
+		}
+	}
+
+	//Remove the object representing the client...
+	for (unsigned i = 0; i < objects.size(); i++)
+	{
+		if (objects[i]->ID == ID)
+		{
+			delete objects[i];
+			objects.erase(objects.begin() + i);
+			break;
+		}
+	}
+}
+
+
+
+
+
+
+void GameServer::startReceiveUDP()
+{
+	socketUDP.async_receive_from(
+		boost::asio::buffer(receiveBufferUDP), senderEndpointUDP,
+		boost::bind(&GameServer::handleReceiveUDP, this,
 		boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
-void GameServer::handleReceive(const boost::system::error_code& error, std::size_t bytesTransferred)
+void GameServer::handleReceiveUDP(const boost::system::error_code& error, std::size_t bytesTransferred)
 {
 	if (!error || error == boost::asio::error::message_size)
 	{
@@ -41,18 +128,12 @@ void GameServer::handleReceive(const boost::system::error_code& error, std::size
 			spehs::console::log("Game server: data received");
 		
 		unsigned char type;
-		memcpy(&type, &receiveBuffer[0], sizeof(unsigned char));
+		memcpy(&type, &receiveBufferUDP[0], sizeof(unsigned char));
 		switch (type)
 		{
 		default:
 		case packet::invalid:
 			spehs::console::error("Server: packet with invalid packet type received!");
-			break;
-		case packet::enter:
-			receiveEnter();
-			break;
-		case packet::exit:
-			receiveExit();
 			break;
 		case packet::update:
 			receiveUpdate();
@@ -61,64 +142,22 @@ void GameServer::handleReceive(const boost::system::error_code& error, std::size
 	}
 
 	//Start receiving again
-	startReceive();
-}
-void GameServer::receiveEnter()
-{
-	clients.push_back(Client());
-	if (clients.size() > 1)
-		clients.back().ID = clients[clients.size() - 2].ID + 1;//Take next ID
-	else
-		clients.back().ID = 1;
-	spehs::console::log("Client " + std::to_string(clients.back().ID) + " [" + senderEndpoint.address().to_string() + "] entered the game");
-	
-	//Create object for player
-	objects.push_back(new Object());
-	objects.back()->ID = clients.back().ID;
-
-	//Send ID back to client
-	boost::array<int16_t, 1> answerID = { clients.back().ID };
-	socket.send_to(boost::asio::buffer(answerID), senderEndpoint);
-}
-void GameServer::receiveExit()
-{
-	boost::array<unsigned char, 1> answer = { 1 };
-	int16_t exitID;
-	memcpy(&exitID, &receiveBuffer[1], sizeof(int16_t));
-	socket.send_to(boost::asio::buffer(answer), senderEndpoint);
-
-	for (unsigned i = 0; i < clients.size(); i++)
-	{
-		if (clients[i].ID == exitID)
-		{
-			spehs::console::log("Client " + std::to_string(clients[i].ID) + "[" + senderEndpoint.address().to_string() + "] exited the game");
-			clients.erase(clients.begin() + i);
-			break;
-		}
-	}
-	for (unsigned i = 0; i < objects.size(); i++)
-	{
-		if (objects[i]->ID == exitID)
-		{
-			delete objects[i];
-			objects.erase(objects.begin() + i);
-			break;
-		}
-	}
+	startReceiveUDP();
 }
 void GameServer::receiveUpdate()
 {
 	//Mem copy so that packet becomes more readable...
-	memcpy(&playerStateDataBuffer[0], &receiveBuffer[0], sizeof(PlayerStateData));
+	memcpy(&playerStateDataBufferUDP[0], &receiveBufferUDP[0], sizeof(PlayerStateData));
 
-	//Do something to objects with player input
+	//Do something to objects with player input...
 	for (unsigned i = 0; i < objects.size(); i++)
 	{
-		if (objects[i]->ID == playerStateDataBuffer[0].ID)
+		if (objects[i]->ID == playerStateDataBufferUDP[0].ID)
 		{
-			objects[i]->x = playerStateDataBuffer[0].mouseX;
-			objects[i]->y = playerStateDataBuffer[0].mouseY;
-			spehs::console::log(
+			objects[i]->x = playerStateDataBufferUDP[0].mouseX;
+			objects[i]->y = playerStateDataBufferUDP[0].mouseY;
+			if (LOG_NETWORK)
+				spehs::console::log(
 				"Object " + std::to_string(objects[i]->ID) + " position: " +
 				std::to_string(objects[i]->x) + ", " + std::to_string(objects[i]->y));
 			break;
@@ -128,14 +167,14 @@ void GameServer::receiveUpdate()
 	//Send return packet (object data) back to player
 	//Write object count
 	unsigned objectCount = objects.size();
-	memcpy(&objectData[0], &objectCount, sizeof(unsigned));
+	memcpy(&objectDataUDP[0], &objectCount, sizeof(unsigned));
 	//Write objects
 	size_t offset = sizeof(unsigned);
 	for (unsigned i = 0; i < objects.size(); i++)
 	{
-		memcpy(&objectData[0] + offset, objects[i], sizeof(ObjectData));
+		memcpy(&objectDataUDP[0] + offset, objects[i], sizeof(ObjectData));
 		offset += sizeof(ObjectData);
 	}
-	socket.send_to(boost::asio::buffer(objectData), senderEndpoint);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
+	socketUDP.send_to(boost::asio::buffer(objectDataUDP), senderEndpointUDP);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
 
 }

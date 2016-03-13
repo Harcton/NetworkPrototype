@@ -25,7 +25,7 @@ void TCPDaytimeTutorial::tutorial1(std::string serverName)
 	{
 		boost::asio::io_service ioService;
 		boost::asio::ip::tcp::resolver resolver(ioService);
-		boost::asio::ip::tcp::resolver::query query(serverName, "TCPDaytimeTutorial1"/*Service name*/);
+		boost::asio::ip::tcp::resolver::query query(serverName, std::to_string(PORT_NUMBER_TCP));
 		boost::asio::ip::tcp::resolver::iterator endpointIterator = resolver.resolve(query);
 		boost::asio::ip::tcp::socket socket(ioService);
 		boost::asio::connect(socket, endpointIterator);
@@ -57,7 +57,7 @@ void TCPDaytimeTutorial::tutorial2(std::string serverName)
 	{
 		boost::asio::io_service ioService;
 		boost::asio::ip::tcp::acceptor acceptor(ioService,
-			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER));
+			boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER_TCP));
 
 		std::string message = makeDaytimeString();
 		boost::system::error_code ignoredError;

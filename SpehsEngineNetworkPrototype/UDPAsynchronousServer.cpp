@@ -31,7 +31,7 @@ void UDPAsynchronousServer::run()
 
 
 UDPServer::UDPServer(boost::asio::io_service& io_service) :
-socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER))
+socket(io_service, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER_UDP))
 {
 	startReceive();
 }

@@ -163,14 +163,14 @@ void main()
 	spehs::console::addCommand("game", game);
 	std::vector<std::string> placeholder = {"placeholder"};
 
-	switch (1)
+	switch (0)
 	{
 	default:break;
 	case 1:
 		/*Server never receives enter, unless typed ingame console...?*/
 		placeholder.push_back("192.162.1.233");
 		gameServer(placeholder);
-		Sleep(6500);
+		Sleep(500);
 		game(placeholder);
 		break;
 	case 2:

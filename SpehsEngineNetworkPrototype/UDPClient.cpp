@@ -16,7 +16,7 @@ void UDPClient::run(std::string str)
 		spehs::console::log("Creating UDP client...");
 		boost::asio::io_service ioService;
 		boost::asio::ip::udp::resolver resolver(ioService);
-		boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), str, std::to_string(PORT_NUMBER));
+		boost::asio::ip::udp::resolver::query query(boost::asio::ip::udp::v4(), str, std::to_string(PORT_NUMBER_UDP));
 
 		//Getting server endpoint
 		boost::asio::ip::udp::endpoint serverEndpoint = *resolver.resolve(query);
