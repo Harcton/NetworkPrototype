@@ -108,11 +108,15 @@ void Game::update()
 
 	//Synchronous update send/receive state data
 	socketUDP.send(boost::asio::buffer(playerStateData));
-	socketUDP.async_receive_from(
-		boost::asio::buffer(receiveBuffer), serverEndpointUDP,
-		boost::bind(&Game::receiveUpdate, this,
-			boost::asio::placeholders::error,
-			boost::asio::placeholders::bytes_transferred));
+	//socketUDP.async_receive(
+	//	boost::asio::buffer(receiveBuffer),
+	//	boost::bind(
+	//		&Game::receiveUpdate, this,
+	//		boost::asio::placeholders::error,
+	//		boost::asio::placeholders::bytes_transferred));
+	socketUDP.receive(boost::asio::buffer(receiveBuffer));
+	boost::system::error_code e;
+	receiveUpdate(e, 1);
 }
 void Game::receiveUpdate(const boost::system::error_code& error, std::size_t bytesTransferred)
 {

@@ -65,7 +65,7 @@ TCP?
 		-Object create/destroy
 		-Chat output
 		-Player fleet build data (save)
-UPD?
+UDP?
 	IN:
 		-Player input state
 	OUT:

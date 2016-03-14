@@ -3,7 +3,7 @@
 #define SERVER_SIZE 5
 #define PORT_NUMBER_TCP 41624
 #define PORT_NUMBER_UDP 41625
-#define LOG_NETWORK false
+#define LOG_NETWORK true
 #define UDP_DATAGRAM_MAX 1024//65527
 //41624
 //13

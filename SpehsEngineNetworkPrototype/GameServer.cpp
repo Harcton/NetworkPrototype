@@ -1,3 +1,4 @@
+#include <iostream>
 #include <boost/bind.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -28,6 +29,7 @@ void Client::receiveHandler(const boost::system::error_code& error, std::size_t 
 		spehs::console::warning("Client" + std::to_string(ID) + " received invalid packet type (TCP)!");
 		break;
 	case packet::enter:
+		//Enter practically useless packet type, enter server handled by acceptor
 		break;
 	case packet::exit:
 		server.clientExit(ID);
@@ -175,6 +177,15 @@ void GameServer::receiveUpdate()
 		memcpy(&objectDataUDP[0] + offset, objects[i], sizeof(ObjectData));
 		offset += sizeof(ObjectData);
 	}
-	socketUDP.send_to(boost::asio::buffer(objectDataUDP), senderEndpointUDP);//Sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
-
+	try
+	{
+		/* Plain socket.send() doesn's work - the socket isn't connected to the client in this case
+		socket.send_to() sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
+		*/
+		socketUDP.send_to(boost::asio::buffer(objectDataUDP), senderEndpointUDP);		
+	}
+	catch (std::exception& e)
+	{
+		std::cerr << "\n" << e.what();
+	}
 }
