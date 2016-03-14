@@ -3,7 +3,7 @@
 #define SERVER_SIZE 5
 #define PORT_NUMBER_TCP 41624
 #define PORT_NUMBER_UDP 41625
-#define LOG_NETWORK true
+#define LOG_NETWORK false
 #define UDP_DATAGRAM_MAX 1024//65527
 //41624
 //13
@@ -15,9 +15,17 @@ namespace packet
 	enum PacketType : unsigned char
 	{
 		invalid = 0,
+		//UDP
+		update,
+		//TCP
 		enter,
 		exit,
-		update,
+		createObj,
+		createPart,
+		destroyObj,
+		destroyPart,
+		chatIn,
+		chatOut,
 	};
 }
 

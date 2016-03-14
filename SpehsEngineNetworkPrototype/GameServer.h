@@ -10,6 +10,7 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/array.hpp>
 #include "Network.h"
+#define SERVER_EXIT_BIT		0x0001
 
 namespace boost
 {
@@ -84,6 +85,9 @@ private:
 	void handleAcceptClient(boost::shared_ptr<Client> client, const boost::system::error_code& error);
 	void handleReceiveUDP(const boost::system::error_code& error, std::size_t bytesTransferred);
 	void receiveUpdate();//UDP
+	void sendUpdateData();
+
+	int16_t state;
 
 	////Asio
 	boost::asio::io_service ioService;
@@ -101,5 +105,7 @@ private:
 	std::array<PlayerStateData, 1> playerStateDataBufferUDP;//Buffer for memcopying data from receive buffer into readable format
 	
 	std::vector<Object*> objects;
+	std::vector<Object*> newObjects;
+	std::vector<Object*> removedObjects;
 	std::vector<boost::shared_ptr<Client>> clients;
 };

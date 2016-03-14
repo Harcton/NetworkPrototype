@@ -42,10 +42,11 @@ public:
 	~Game();
 	void run();
 	void exitGame();
+	void receiveUpdate();
+	void receiveHandlerTCP(const boost::system::error_code& error, std::size_t bytes);
 
 private:
 	void update();
-	void receiveUpdate(const boost::system::error_code& error, std::size_t bytesTransferred);
 
 	//Misc
 	int16_t state;
@@ -66,6 +67,7 @@ private:
 	boost::asio::ip::udp::resolver::query queryUDP;
 
 	//Data
-	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBuffer;
-	std::vector<ObjectVisual> objectVisuals;
+	boost::array<unsigned char, 1024> receiveBufferTCP;
+	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBufferUDP;
+	std::vector<ObjectVisual*> objectVisuals;
 };

@@ -6,6 +6,7 @@
 #include <boost/asio/placeholders.hpp>
 #include <boost/shared_ptr.hpp>
 #include <SpehsEngine/Console.h>
+#include <SpehsEngine/BitwiseOperations.h>
 #include <SpehsEngine/Time.h>
 #include "GameServer.h"
 #include "MakeDaytimeString.h"
@@ -44,17 +45,62 @@ void Client::receiveHandler(const boost::system::error_code& error, std::size_t 
 GameServer::GameServer() :
 	acceptorTCP(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER_TCP)),
 	socketUDP(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER_UDP)),
-	objectDataUDP{}{}
+	objectDataUDP{}, state (0){}
 GameServer::~GameServer()
 {
 	for (unsigned i = 0; i < objects.size(); i++)
 		delete objects[i];
+	for (unsigned i = 0; i < newObjects.size(); i++)
+		delete newObjects[i];
+	for (unsigned i = 0; i < removedObjects.size(); i++)
+		delete removedObjects[i];
 }
 void GameServer::run()
 {
 	startReceiveTCP();
 	startReceiveUDP();
-	ioService.run();
+	ioService.run();//TODO, blocks simulation loop below
+
+	while (!checkBit(state, SERVER_EXIT_BIT))
+	{
+		//Object pre update
+		//Object update
+		//Object post update
+		//Chunk update
+		//Physics update
+		sendUpdateData();
+	}
+}
+void GameServer::sendUpdateData()
+{
+	//TCP packet
+	std::vector<unsigned char> packetTCP;
+	size_t offset = 0;
+	if (newObjects.size() > 0)
+	{
+		packetTCP.reserve(sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + newObjects.size() * sizeof(ObjectData));
+		packetTCP[0] = packet::createObj;
+		unsigned size = newObjects.size();
+		memcpy(&packetTCP[1], &size, sizeof(unsigned));
+		offset += sizeof(unsigned) + sizeof(unsigned char);
+		for (unsigned i = 0; i < size; i++)
+		{
+			packetTCP.push_back(packet::createObj);
+			ObjectData objectData;
+			objectData.ID = newObjects[i]->ID;
+			objectData.x = newObjects[i]->x;
+			objectData.y = newObjects[i]->y;
+			memcpy(&packetTCP[offset], &objectData, sizeof(ObjectData));
+			offset += sizeof(ObjectData);
+		}
+	}
+
+	for (unsigned i = 0; i < clients.size(); i++)
+		clients[i]->socket.send(boost::asio::buffer(packetTCP));
+
+	//UDP packet
+	//Create object data packet for each client
+
 }
 
 
@@ -74,8 +120,8 @@ void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boos
 	spehs::console::log("Client " + std::to_string(clients.back()->ID) + " [" + clients.back()->socket.remote_endpoint().address().to_string() + "] entered the game");
 	
 	//Create object for player
-	objects.push_back(new Object());
-	objects.back()->ID = clients.back()->ID;
+	newObjects.push_back(new Object());
+	newObjects.back()->ID = clients.back()->ID;
 
 	//Send ID back to client
 	boost::array<uint32_t, 1> answerID = { clients.back()->ID };
@@ -102,7 +148,7 @@ void GameServer::clientExit(uint32_t ID)
 	{
 		if (objects[i]->ID == ID)
 		{
-			delete objects[i];
+			removedObjects.push_back(objects[i]);
 			objects.erase(objects.begin() + i);
 			break;
 		}
