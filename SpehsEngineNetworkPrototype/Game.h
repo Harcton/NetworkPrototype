@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
+#include <mutex>
 #include <SpehsEngine/PolygonBatch.h>
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/socket_base.hpp>
@@ -48,10 +49,16 @@ public:
 
 private:
 	void update();
+	void render();
 
 	//Misc
 	int16_t state;
 	int16_t ID;//Client id
+	std::vector<ObjectVisual*> objectVisuals;
+	std::vector<ObjectData> newObjects;
+	//Mutex
+	std::recursive_mutex idMutex;
+	std::recursive_mutex objectMutex;
 
 	//Asio
 	boost::asio::io_service ioService;
@@ -70,5 +77,4 @@ private:
 	//Data
 	boost::array<unsigned char, 1024> receiveBufferTCP;
 	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBufferUDP;
-	std::vector<ObjectVisual*> objectVisuals;
 };

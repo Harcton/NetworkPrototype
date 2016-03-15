@@ -1,4 +1,5 @@
 #include <iostream>
+#include <thread>
 #include <boost/asio/ip/udp.hpp>
 #include <boost/bind.hpp>
 #include <boost/asio/placeholders.hpp>
@@ -28,6 +29,8 @@ Game::~Game()
 		delete objectVisuals[i];
 	exitGame();
 }
+/////////////////
+// MAIN THREAD //
 void Game::exitGame()
 {
 	boost::array<unsigned char, 1> exitPacket;
@@ -52,7 +55,6 @@ void Game::run()
 			socketTCP.send(boost::asio::buffer(enterPacket));
 
 			//Wait for receiving return data
-			socketTCP.receive(boost::asio::buffer(receiveBufferTCP));
 			socketTCP.async_receive(boost::asio::buffer(receiveBufferTCP),
 				boost::bind(
 					&Game::receiveHandlerTCP,
@@ -85,6 +87,7 @@ void Game::run()
 	} while (!success);
 	
 
+	std::thread ioServiceThread(boost::bind(&boost::asio::io_service::run, &ioService));
 	while (!checkBit(state, GAME_EXIT_BIT))
 	{
 		mainWindow->clearBuffer();
@@ -96,8 +99,7 @@ void Game::run()
 		update();
 
 		//Render
-		for (unsigned i = 0; i < objectVisuals.size(); i++)
-			objectVisuals[i]->polygon.draw();
+		render();
 		spehs::console::render();
 
 		spehs::endFPS();
@@ -107,12 +109,14 @@ void Game::run()
 		if (inputManager->isKeyDown(KEYBOARD_Q))
 			enableBit(state, GAME_EXIT_BIT);
 	}
+	ioServiceThread.join();
 
 	//Notify server
 	exitGame();
 }
 void Game::update()
 {
+	std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
 	std::array<PlayerStateData, 1> playerStateData;
 
 	//Gather state contents
@@ -124,9 +128,25 @@ void Game::update()
 	socketUDP.send(boost::asio::buffer(playerStateData));
 	socketUDP.receive(boost::asio::buffer(receiveBufferUDP));
 	receiveUpdate();//Wait untill a server update arrives
+
+	//New objects
+	for (unsigned i = 0; i < newObjects.size(); i++)
+	{
+		objectVisuals.push_back(new ObjectVisual());
+		objectVisuals.back()->ID = newObjects[i].ID;
+		objectVisuals.back()->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
+	}
+	newObjects.clear();
+}
+void Game::render()
+{
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+	for (unsigned i = 0; i < objectVisuals.size(); i++)
+		objectVisuals[i]->polygon.draw();
 }
 void Game::receiveUpdate()
 {
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
 	unsigned objectCount;
 	memcpy(&objectCount, &receiveBufferUDP[0], sizeof(unsigned));
 	size_t offset = sizeof(objectCount);
@@ -145,6 +165,16 @@ void Game::receiveUpdate()
 		}
 	}
 }
+/////////////////
+/////////////////
+
+
+
+
+
+
+///////////////////////
+// IO SERVICE THREAD //
 void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t bytes)
 {
 	//Handle data sent by the server
@@ -152,22 +182,32 @@ void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t
 	do
 	{
 		offset += 1;
-		switch (receiveBufferTCP[offset - 1])
+		switch (packet::PacketType(receiveBufferTCP[offset - 1]))
 		{
 		default:
 		case packet::invalid:
 			spehs::console::error(__FUNCTION__" invalid packet type!");
 			break;
 		case packet::enterID:
+		{
+			std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
 			memcpy(&ID, &receiveBufferTCP[offset], sizeof(uint32_t));
 			offset += sizeof(uint32_t);
+		}
+		break;
 		case packet::createObj:
-			ObjectData objectData;
-			memcpy(&objectData, &receiveBufferTCP[offset], sizeof(ObjectData));
-			offset += sizeof(ObjectData);
-			objectVisuals.push_back(new ObjectVisual());
-			objectVisuals.back()->ID = objectData.ID;
-			objectVisuals.back()->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowWidthHalf());
+		{
+			std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+			unsigned count;
+			memcpy(&count, &receiveBufferTCP[offset], sizeof(unsigned));
+			offset += sizeof(unsigned);
+			for (unsigned i = 0; i < count; i++)
+			{
+				newObjects.push_back(ObjectData());
+				memcpy(&newObjects.back(), &receiveBufferTCP[offset], sizeof(ObjectData));
+				offset += sizeof(ObjectData);
+			}
+		}
 			break;
 		}
 	} while (offset < bytes);
@@ -180,3 +220,5 @@ void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t
 		this, boost::asio::placeholders::error,
 		boost::asio::placeholders::bytes_transferred));
 }
+///////////////////////
+///////////////////////
