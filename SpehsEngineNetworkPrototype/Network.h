@@ -19,6 +19,7 @@ namespace packet
 		update,
 		//TCP
 		enter,
+		enterID,
 		exit,
 		createObj,
 		createPart,

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <thread>
 #include <boost/bind.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/ip/udp.hpp>
@@ -59,53 +60,18 @@ void GameServer::run()
 {
 	startReceiveTCP();
 	startReceiveUDP();
-	ioService.run();//TODO, blocks simulation loop below
+	std::thread gameLoopThread(boost::bind(&GameServer::gameLoop, this));
 
-	while (!checkBit(state, SERVER_EXIT_BIT))
-	{
-		//Object pre update
-		//Object update
-		//Object post update
-		//Chunk update
-		//Physics update
-		sendUpdateData();
-	}
-}
-void GameServer::sendUpdateData()
-{
-	//TCP packet
-	std::vector<unsigned char> packetTCP;
-	size_t offset = 0;
-	if (newObjects.size() > 0)
-	{
-		packetTCP.reserve(sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + newObjects.size() * sizeof(ObjectData));
-		packetTCP[0] = packet::createObj;
-		unsigned size = newObjects.size();
-		memcpy(&packetTCP[1], &size, sizeof(unsigned));
-		offset += sizeof(unsigned) + sizeof(unsigned char);
-		for (unsigned i = 0; i < size; i++)
-		{
-			packetTCP.push_back(packet::createObj);
-			ObjectData objectData;
-			objectData.ID = newObjects[i]->ID;
-			objectData.x = newObjects[i]->x;
-			objectData.y = newObjects[i]->y;
-			memcpy(&packetTCP[offset], &objectData, sizeof(ObjectData));
-			offset += sizeof(ObjectData);
-		}
-	}
-
-	for (unsigned i = 0; i < clients.size(); i++)
-		clients[i]->socket.send(boost::asio::buffer(packetTCP));
-
-	//UDP packet
-	//Create object data packet for each client
-
+	ioService.run();
+	gameLoopThread.join();
 }
 
 
+/////////////////////////////
+// IO SERVICE - RUN THREAD //
 void GameServer::startReceiveTCP()
 {
+	std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
 	clients.push_back(Client::create(ioService, *this));
 	//Give an ID for the client
 	if (clients.size() > 1)
@@ -117,49 +83,77 @@ void GameServer::startReceiveTCP()
 }
 void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boost::system::error_code& error)
 {
-	spehs::console::log("Client " + std::to_string(clients.back()->ID) + " [" + clients.back()->socket.remote_endpoint().address().to_string() + "] entered the game");
-	
 	//Create object for player
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
 	newObjects.push_back(new Object());
 	newObjects.back()->ID = clients.back()->ID;
+	
 
-	//Send ID back to client
-	boost::array<uint32_t, 1> answerID = { clients.back()->ID };
-	clients.back()->socket.send(boost::asio::buffer(answerID));
+	{std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
 
-	//Start receiving again
-	clients.back()->startReceiveTCP();
-	startReceiveTCP();
+		//Log enter
+		spehs::console::log("Client " + std::to_string(clients.back()->ID) + " [" + clients.back()->socket.remote_endpoint().address().to_string() + "] entered the game");
+
+		//Data vector
+		std::vector<unsigned char> packetTCP;
+
+		//ID
+		packetTCP.resize(5/*packet type + uint32*/);
+		packetTCP[0] = packet::enterID;
+		memcpy(&packetTCP[1], &clients.back()->ID, sizeof(uint32_t));
+
+
+		//Send all existing objects as createObj packet type
+		packetTCP.resize(packetTCP.size() + sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + objects.size() * sizeof(ObjectData));
+		packetTCP[0] = packet::createObj;
+		unsigned size = objects.size();
+		memcpy(&packetTCP[1], &size, sizeof(unsigned));
+		size_t offset = sizeof(unsigned/*packet type*/) + sizeof(unsigned char/*object count*/);
+		for (unsigned i = 0; i < size; i++)
+		{
+			//Create packet data
+			ObjectData objectData;
+			objectData.ID = objects[i]->ID;
+			objectData.x = objects[i]->x;
+			objectData.y = objects[i]->y;
+			memcpy(&packetTCP[offset], &objectData, sizeof(ObjectData));
+			offset += sizeof(ObjectData);
+		}
+
+		//Start receiving again
+		clients.back()->startReceiveTCP();
+		clients.back()->socket.send(boost::asio::buffer(packetTCP));
+		startReceiveTCP();
+	}
 }
 void GameServer::clientExit(uint32_t ID)
 {
-	for (unsigned i = 0; i < clients.size(); i++)
-	{
-		if (clients[i]->ID == ID)
+	//Remove client from clients
+	{std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
+		for (unsigned i = 0; i < clients.size(); i++)
 		{
-			spehs::console::log("Client " + std::to_string(clients[i]->ID) + "[" + clients[i]->socket.remote_endpoint().address().to_string() + "] exited the game");
-			clients.erase(clients.begin() + i);
-			break;
+			if (clients[i]->ID == ID)
+			{
+				spehs::console::log("Client " + std::to_string(clients[i]->ID) + "[" + clients[i]->socket.remote_endpoint().address().to_string() + "] exited the game");
+				clients.erase(clients.begin() + i);
+				break;
+			}
 		}
 	}
 
 	//Remove the object representing the client...
-	for (unsigned i = 0; i < objects.size(); i++)
-	{
-		if (objects[i]->ID == ID)
+	{std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+		for (unsigned i = 0; i < objects.size(); i++)
 		{
-			removedObjects.push_back(objects[i]);
-			objects.erase(objects.begin() + i);
-			break;
+			if (objects[i]->ID == ID)
+			{
+				removedObjects.push_back(objects[i]);
+				objects.erase(objects.begin() + i);
+				break;
+			}
 		}
 	}
 }
-
-
-
-
-
-
 void GameServer::startReceiveUDP()
 {
 	socketUDP.async_receive_from(
@@ -194,6 +188,8 @@ void GameServer::handleReceiveUDP(const boost::system::error_code& error, std::s
 }
 void GameServer::receiveUpdate()
 {
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+
 	//Mem copy so that packet becomes more readable...
 	memcpy(&playerStateDataBufferUDP[0], &receiveBufferUDP[0], sizeof(PlayerStateData));
 
@@ -234,4 +230,67 @@ void GameServer::receiveUpdate()
 	{
 		std::cerr << "\n" << e.what();
 	}
+}
+/////////////////////////////
+/////////////////////////////
+ 
+
+
+//////////////////////
+// GAME LOOP THREAD //
+void GameServer::gameLoop()
+{
+	while (!checkBit(state, SERVER_EXIT_BIT))
+	{
+		//Object pre update
+		//Object update
+		//Object post update
+		//Chunk update
+		//Physics update
+		sendUpdateData();
+	}
+}
+void GameServer::sendUpdateData()
+{
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+
+	//TCP packet
+	std::vector<unsigned char> packetTCP;
+	size_t offset = 0;
+	if (newObjects.size() > 0)
+	{
+		packetTCP.resize(sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + newObjects.size() * sizeof(ObjectData));
+		packetTCP[0] = packet::createObj;
+		unsigned size = newObjects.size();
+		memcpy(&packetTCP[1], &size, sizeof(unsigned));
+		offset += sizeof(unsigned) + sizeof(unsigned char);
+		for (unsigned i = 0; i < size; i++)
+		{
+			//Create packet data
+			ObjectData objectData;
+			objectData.ID = newObjects[i]->ID;
+			objectData.x = newObjects[i]->x;
+			objectData.y = newObjects[i]->y;
+			memcpy(&packetTCP[offset], &objectData, sizeof(ObjectData));
+			offset += sizeof(ObjectData);
+
+			//Push to objects
+			objects.push_back(newObjects[i]);
+		}
+
+		//All new objects have been pushed to objects vector, clear newObjects vector
+		newObjects.clear();
+	}
+
+	if (packetTCP.size() > 0)
+	{
+		std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
+		int activeClientCount = int(clients.size()) - 1;
+		for (int i = 0; i < activeClientCount; i++)
+			clients[i]->socket.send(boost::asio::buffer(packetTCP));
+	}
+
+	//UDP packet
+	//Create object data packet for each client
+
 }

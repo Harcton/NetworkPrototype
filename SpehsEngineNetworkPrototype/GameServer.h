@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <stdint.h>
+#include <mutex>
 #include <glm/vec2.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/asio/io_service.hpp>
@@ -76,6 +77,7 @@ public:
 	GameServer();
 	~GameServer();
 	void run();
+	void gameLoop();
 
 	void clientExit(uint32_t ID);
 
@@ -86,6 +88,7 @@ private:
 	void handleReceiveUDP(const boost::system::error_code& error, std::size_t bytesTransferred);
 	void receiveUpdate();//UDP
 	void sendUpdateData();
+	
 
 	int16_t state;
 
@@ -104,8 +107,11 @@ private:
 	boost::array<unsigned char, UDP_DATAGRAM_MAX> objectDataUDP;//Outgoing object data packet
 	std::array<PlayerStateData, 1> playerStateDataBufferUDP;//Buffer for memcopying data from receive buffer into readable format
 	
+	std::recursive_mutex objectMutex;
 	std::vector<Object*> objects;
 	std::vector<Object*> newObjects;
 	std::vector<Object*> removedObjects;
+	
+	std::recursive_mutex clientMutex;
 	std::vector<boost::shared_ptr<Client>> clients;
 };

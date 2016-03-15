@@ -10,6 +10,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include "Network.h"
 #define GAME_EXIT_BIT 0x0001
+#define GAME_CONNECTED_BIT 0x0002
 
 namespace boost
 {

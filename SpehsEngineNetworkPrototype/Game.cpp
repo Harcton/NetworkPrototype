@@ -38,7 +38,7 @@ void Game::run()
 {
 
 	//Connect TCP
-	bool connected = false;
+	bool success = false;
 	do
 	{
 		try
@@ -50,23 +50,25 @@ void Game::run()
 			//Send enter packet to server
 			boost::array<unsigned char, 1> enterPacket = { packet::enter };
 			socketTCP.send(boost::asio::buffer(enterPacket));
+
+			//Wait for receiving return data
 			socketTCP.receive(boost::asio::buffer(receiveBufferTCP));
-			memcpy(&ID, &receiveBufferTCP[0], sizeof(uint32_t));//Receive ID from server
-			socketTCP.async_receive(
-				boost::asio::buffer(receiveBufferTCP),
-				boost::bind(&Game::receiveHandlerTCP,
-				this, boost::asio::placeholders::error,
-				boost::asio::placeholders::bytes_transferred));
-			connected = true;
+			socketTCP.async_receive(boost::asio::buffer(receiveBufferTCP),
+				boost::bind(
+					&Game::receiveHandlerTCP,
+					this,
+					boost::asio::placeholders::error,
+					boost::asio::placeholders::bytes_transferred));
+			success = true;
 		}
 		catch (std::exception& e)
 		{
 			std::cout << "\n" << e.what();
 		}
-	} while (!connected);
+	} while (!success);
 
 	//Connect UDP
-	connected = false;
+	success = false;
 	do
 	{
 		try
@@ -74,13 +76,13 @@ void Game::run()
 			serverEndpointUDP = *resolverUDP.resolve(queryUDP);
 			socketUDP.open(boost::asio::ip::udp::v4());
 			socketUDP.connect(serverEndpointUDP);
-			connected = true;
+			success = true;
 		}
 		catch (std::exception& e)
 		{
 			std::cout << "\n" << e.what();
 		}
-	} while (!connected);
+	} while (!success);
 	
 
 	while (!checkBit(state, GAME_EXIT_BIT))
@@ -146,20 +148,30 @@ void Game::receiveUpdate()
 void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t bytes)
 {
 	//Handle data sent by the server
-	size_t offset = sizeof(unsigned char);
-	switch (receiveBufferTCP[0])
+	size_t offset = 0;//Byte offset from buffer begin
+	do
 	{
-	default:
-	case packet::invalid:
-		break;
-	case packet::createObj:
-		ObjectData objectData;
-		memcpy(&objectData, &receiveBufferTCP[0] + offset, sizeof(ObjectData));
-		objectVisuals.push_back(new ObjectVisual());
-		objectVisuals.back()->ID = objectData.ID;
-		objectVisuals.back()->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowWidthHalf());
-		break;
-	}
+		offset += 1;
+		switch (receiveBufferTCP[offset - 1])
+		{
+		default:
+		case packet::invalid:
+			spehs::console::error(__FUNCTION__" invalid packet type!");
+			break;
+		case packet::enterID:
+			memcpy(&ID, &receiveBufferTCP[offset], sizeof(uint32_t));
+			offset += sizeof(uint32_t);
+		case packet::createObj:
+			ObjectData objectData;
+			memcpy(&objectData, &receiveBufferTCP[offset], sizeof(ObjectData));
+			offset += sizeof(ObjectData);
+			objectVisuals.push_back(new ObjectVisual());
+			objectVisuals.back()->ID = objectData.ID;
+			objectVisuals.back()->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowWidthHalf());
+			break;
+		}
+	} while (offset < bytes);
+
 
 	//Start receiving again
 	socketTCP.async_receive(
