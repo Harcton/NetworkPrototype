@@ -153,11 +153,11 @@ void Game::receiveUpdate()
 	memcpy(&objectCount, &receiveBufferUDP[0], sizeof(unsigned));
 	size_t offset = sizeof(objectCount);
 	ObjectData objectData;//Temp location
-	for (unsigned i = 0; i < objectCount; i++)
+	for (unsigned c = 0; c < objectCount; c++)
 	{
-		memcpy(&objectData, &receiveBufferUDP[0] + offset, sizeof(ObjectData));
+		memcpy(&objectData, &receiveBufferUDP[offset], sizeof(ObjectData));
 		offset += sizeof(ObjectData);
-		for (unsigned o = 0; o < objectVisuals.size(); o++)
+		for (unsigned i = 0; i < objectVisuals.size(); i++)
 		{
 			if (objectVisuals[i]->ID == objectData.ID)
 			{
