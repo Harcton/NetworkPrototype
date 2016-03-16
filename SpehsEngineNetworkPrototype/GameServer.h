@@ -29,7 +29,7 @@ class Object
 {
 public:
 	Object() : ID(0), x(0), y(0){}
-	int32_t ID;
+	uint32_t ID;
 	int16_t x;
 	int16_t y;
 };
@@ -47,7 +47,7 @@ public:
 	void receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred);
 
 	GameServer& server;
-	int32_t ID;
+	uint32_t ID;
 	boost::asio::ip::tcp::socket socket;
 	boost::array<unsigned char, 128> receiveBuffer;
 private:

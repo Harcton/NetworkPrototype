@@ -117,9 +117,19 @@ void Game::run()
 void Game::update()
 {
 	std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
-	std::array<PlayerStateData, 1> playerStateData;
-
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+	
+	//New objects
+	for (unsigned i = 0; i < newObjects.size(); i++)
+	{
+		objectVisuals.push_back(new ObjectVisual());
+		objectVisuals.back()->ID = newObjects[i].ID;
+		objectVisuals.back()->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
+	}
+	newObjects.clear();	
+	
 	//Gather state contents
+	std::array<PlayerStateData, 1> playerStateData;
 	playerStateData[0].ID = ID;
 	playerStateData[0].mouseX = inputManager->getMouseX();
 	playerStateData[0].mouseY = inputManager->getMouseY();
@@ -129,14 +139,6 @@ void Game::update()
 	socketUDP.receive(boost::asio::buffer(receiveBufferUDP));
 	receiveUpdate();//Wait untill a server update arrives
 
-	//New objects
-	for (unsigned i = 0; i < newObjects.size(); i++)
-	{
-		objectVisuals.push_back(new ObjectVisual());
-		objectVisuals.back()->ID = newObjects[i].ID;
-		objectVisuals.back()->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
-	}
-	newObjects.clear();
 }
 void Game::render()
 {
@@ -191,7 +193,7 @@ void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t
 		case packet::enterID:
 		{
 			std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
-			memcpy(&ID, &receiveBufferTCP[offset], sizeof(uint32_t));
+			memcpy(&ID, &receiveBufferTCP[offset], sizeof(sizeof(ID)));
 			offset += sizeof(uint32_t);
 		}
 		break;

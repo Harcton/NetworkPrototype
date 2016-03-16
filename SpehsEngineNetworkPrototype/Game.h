@@ -34,7 +34,7 @@ public:
 		polygon.setColor(180, 90, 0);
 	}
 	spehs::PolygonBatch polygon;
-	int16_t ID;
+	uint32_t ID;
 };
 
 class Game
@@ -52,8 +52,8 @@ private:
 	void render();
 
 	//Misc
-	int16_t state;
-	int16_t ID;//Client id
+	uint16_t state;
+	uint32_t ID;//Client id
 	std::vector<ObjectVisual*> objectVisuals;
 	std::vector<ObjectData> newObjects;
 	//Mutex

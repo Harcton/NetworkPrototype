@@ -91,11 +91,14 @@ void GameServer::sendUpdateData()
 	size_t offset = 0;
 	if (newObjects.size() > 0)
 	{
-		packetTCP.resize(sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + newObjects.size() * sizeof(ObjectData));
-		packetTCP[0] = packet::createObj;
+		packetTCP.resize(
+			//Create object
+			sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + newObjects.size() * sizeof(ObjectData));
+		packetTCP[offset] = packet::createObj;
+		offset += sizeof(unsigned char);
 		unsigned size = newObjects.size();
-		memcpy(&packetTCP[1], &size, sizeof(unsigned));
-		offset += sizeof(unsigned) + sizeof(unsigned char);
+		memcpy(&packetTCP[offset], &size, sizeof(unsigned));
+		offset += sizeof(unsigned);
 		for (unsigned i = 0; i < size; i++)
 		{
 			//Create packet data
@@ -160,17 +163,25 @@ void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boos
 	std::vector<unsigned char> packetTCP;
 
 	//ID
+	size_t offset = 0;
 	packetTCP.resize(5/*packet type + uint32*/);
-	packetTCP[0] = packet::enterID;
-	memcpy(&packetTCP[1], &clients.back()->ID, sizeof(uint32_t));
+
+	packetTCP[offset] = packet::enterID;
+	offset += sizeof(unsigned char);
+
+	memcpy(&packetTCP[offset], &clients.back()->ID, sizeof(clients.back()->ID));
+	offset += sizeof(clients.back()->ID);
 
 
 	//Send all existing objects as createObj packet type
 	packetTCP.resize(packetTCP.size() + sizeof(unsigned char/*packet type*/) + sizeof(unsigned/*object count*/) + objects.size() * sizeof(ObjectData));
-	packetTCP[0] = packet::createObj;
+	packetTCP[offset] = packet::createObj;
+	offset += sizeof(unsigned char);
+
 	unsigned size = objects.size();
-	memcpy(&packetTCP[1], &size, sizeof(unsigned));
-	size_t offset = sizeof(unsigned/*packet type*/) + sizeof(unsigned char/*object count*/);
+	memcpy(&packetTCP[offset], &size, sizeof(unsigned));
+	offset += sizeof(unsigned/*object count*/);
+
 	for (unsigned i = 0; i < size; i++)
 	{
 		//Create packet data
