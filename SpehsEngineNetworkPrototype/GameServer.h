@@ -27,6 +27,9 @@ namespace boost
 
 class Object
 {
+	/**This class represents spehs game object class,
+	containing dynamic amount of data (parts mostly).
+	This data can be partly local to the server, meaning that it will not be sent to the clients at any time*/
 public:
 	Object() : ID(0), x(0), y(0){}
 	uint32_t ID;
@@ -44,17 +47,28 @@ public:
 		return  boost::shared_ptr<Client>(new Client(ioService, server));
 	}
 	~Client();
+	friend class GameServer;
 	void startReceiveTCP();
 	void receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred);
 
-	GameServer& server;
 	CLIENT_ID_TYPE ID;
 	boost::asio::ip::tcp::socket socket;
 	boost::asio::ip::udp::endpoint* udpEndpoint;
 	boost::array<unsigned char, 128> receiveBuffer;
 	std::recursive_mutex socketMutex;
+
+	//Input
+	bool isKeyDown(unsigned int keyID);
+	glm::vec2 getMouseCoords();
+
 private:
 	Client(boost::asio::io_service& ioService, GameServer& server);
+	GameServer& server;
+	std::mutex heldKeysMutex;
+	std::mutex mousePosMutex;
+	std::vector<unsigned> heldKeys;
+	int16_t mouseX;
+	int16_t mouseY;
 };
 
 
@@ -79,8 +93,10 @@ UDP?
 public:
 	GameServer();
 	~GameServer();
+	friend class Client;
 	void run();
 	void gameLoop();
+	void exit();
 
 	void clientExit(CLIENT_ID_TYPE ID);
 
@@ -96,6 +112,17 @@ private:
 	
 
 	int16_t state;
+	std::vector<Object*> objects;
+	std::vector<Object*> newObjects;
+	std::vector<Object*> removedObjects;
+	std::vector<boost::shared_ptr<Client>> clients;
+	
+	//Mutex
+	std::recursive_mutex udpSocketMutex;
+	std::recursive_mutex clientsMutex;
+	std::recursive_mutex objectsMutex;
+	std::recursive_mutex newObjectsMutex;
+	std::recursive_mutex removedObjectsMutex;
 
 	////Asio
 	boost::asio::io_service ioService;
@@ -109,16 +136,5 @@ private:
 	//TCP
 	//UDP
 	boost::array<unsigned char, UDP_DATAGRAM_SIZE> receiveBufferUDP;
-	boost::array<unsigned char, UDP_DATAGRAM_SIZE> objectDataUDP;//Outgoing object data packet
-	std::array<PlayerStateData, 1> playerStateDataBufferUDP;//Buffer for memcopying data from receive buffer into readable format
 	
-	std::vector<Object*> objects;
-	std::vector<Object*> newObjects;
-	std::vector<Object*> removedObjects;
-	std::vector<boost::shared_ptr<Client>> clients;
-	
-	//Mutex
-	std::recursive_mutex clientMutex;
-	std::recursive_mutex objectMutex;
-	std::recursive_mutex udpSocketMutex;
 };

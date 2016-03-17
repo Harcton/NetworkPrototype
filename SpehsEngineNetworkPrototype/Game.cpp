@@ -25,8 +25,8 @@ Game::Game(std::string hostName) :  state(0),
 }
 Game::~Game()
 {
-	for (unsigned i = 0; i < objectVisuals.size(); i++)
-		delete objectVisuals[i];
+	for (auto it = objectVisuals.begin(); it != objectVisuals.end(); it++)
+		delete it->second;
 	exitGame();
 }
 /////////////////
@@ -53,11 +53,13 @@ void Game::run()
 			//Send enter packet to server
 			boost::array<unsigned char, 1> enterPacket = { packet::enter };
 			socketTCP.send(boost::asio::buffer(enterPacket));
+			socketTCP.send(boost::asio::buffer(enterPacket));
+			socketTCP.send(boost::asio::buffer(enterPacket));
 
 			//Wait for receiving return data
-			socketTCP.receive(boost::asio::buffer(receiveBufferTCP));
+			size_t bytes = socketTCP.receive(boost::asio::buffer(receiveBufferTCP));
 			boost::system::error_code e;
-			receiveHandlerTCP(e, sizeof(packet::PacketType) + sizeof(CLIENT_ID_TYPE));
+			receiveHandlerTCP(e, bytes);
 			success = true;
 		}
 		catch (std::exception& e)
@@ -78,8 +80,6 @@ void Game::run()
 			boost::array<unsigned char, sizeof(CLIENT_ID_TYPE) + sizeof(packet::PacketType)> enterUDP;
 			enterUDP[0] = packet::enterUdpEndpoint;
 			memcpy(&enterUDP[sizeof(packet::PacketType)], &ID, sizeof(ID));
-			socketUDP.send(boost::asio::buffer(enterUDP));//HACK: send 3 times for better chance for the packet to arrive at server...
-			socketUDP.send(boost::asio::buffer(enterUDP));
 			socketUDP.send(boost::asio::buffer(enterUDP));
 			socketUDP.receive(boost::asio::buffer(enterUDP));//Wait for server response
 			success = true;
@@ -113,10 +113,10 @@ void Game::run()
 		if (inputManager->isKeyDown(KEYBOARD_Q))
 			enableBit(state, GAME_EXIT_BIT);
 	}
-	ioServiceThread.join();
 
 	//Notify server
 	exitGame();
+	ioServiceThread.join();
 }
 void Game::update()
 {
@@ -125,23 +125,51 @@ void Game::update()
 	objectMutex.lock();
 	for (unsigned i = 0; i < newObjects.size(); i++)
 	{
-		objectVisuals.push_back(new ObjectVisual());
-		objectVisuals.back()->ID = newObjects[i].ID;
-		objectVisuals.back()->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
+		std::pair<std::unordered_map<uint32_t, ObjectVisual*>::iterator, bool> insert = objectVisuals.insert({ newObjects[i].ID, new ObjectVisual() });
+		if (insert.second)
+			insert.first->second->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
 	}
 	newObjects.clear();
 	objectMutex.unlock();
 	
 	//Gather state contents
-	std::array<PlayerStateData, 1> playerStateData;
+	size_t offset = 0;
+	std::vector<unsigned char> inputPacket(sizeof(packet::PacketType) + sizeof(CLIENT_ID_TYPE) + sizeof(int16_t) * 2 + sizeof(unsigned)/*Reserve elements for atleast id + mouse pos + held buttons count*/);
+	//Packet type
+	inputPacket[offset] = packet::updateInput;
+	offset += sizeof(packet::PacketType);
+	//ID
 	idMutex.lock();
-	playerStateData[0].ID = ID;
+	memcpy(&inputPacket[offset], &ID, sizeof(ID));
+	offset += sizeof(ID);
 	idMutex.unlock();
-	playerStateData[0].mouseX = inputManager->getMouseX();
-	playerStateData[0].mouseY = inputManager->getMouseY();
+	//Mouse x/y
+	int16_t mousePosVal(inputManager->getMouseX());
+	memcpy(&inputPacket[offset], &mousePosVal, sizeof(mousePosVal));
+	offset += sizeof(mousePosVal);
+	mousePosVal = inputManager->getMouseY();
+	memcpy(&inputPacket[offset], &mousePosVal, sizeof(mousePosVal));
+	offset += sizeof(mousePosVal);
+	////Pressed buttons
+	//Check every held button
+	std::vector<unsigned> held;
+	for (auto it = inputManager->keyMap.begin(); it != inputManager->keyMap.end(); it++)
+	{
+		if (it->second)
+			held.push_back(it->first);
+	}
+	unsigned size = held.size();
+	memcpy(&inputPacket[offset], &size, sizeof(unsigned));
+	offset += sizeof(size);
+	if (size > 0)
+	{
+		inputPacket.resize(inputPacket.size() + sizeof(unsigned) * size);
+		memcpy(&inputPacket[offset], &held[0], sizeof(unsigned) * size);
+		offset += sizeof(unsigned) * size;
+	}
 
 	//Synchronous update send/receive state data
-	socketUDP.send(boost::asio::buffer(playerStateData));
+	socketUDP.send(boost::asio::buffer(inputPacket));
 	socketUDP.receive(boost::asio::buffer(receiveBufferUDP));
 	receiveUpdate();//Wait untill a server update arrives
 
@@ -149,8 +177,8 @@ void Game::update()
 void Game::render()
 {
 	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
-	for (unsigned i = 0; i < objectVisuals.size(); i++)
-		objectVisuals[i]->polygon.draw();
+	for (auto it = objectVisuals.begin(); it != objectVisuals.end(); it++)
+		it->second->polygon.draw();
 }
 void Game::receiveUpdate()
 {
@@ -170,18 +198,12 @@ void Game::receiveUpdate()
 		{
 			memcpy(&objectData, &receiveBufferUDP[offset], sizeof(ObjectData));
 			offset += sizeof(ObjectData);
-			for (unsigned i = 0; i < objectVisuals.size(); i++)
-			{
-				if (objectVisuals[i]->ID == objectData.ID)
-				{
-					objectVisuals[i]->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowHeightHalf());
-					break;
-				}
-			}
+			auto it = objectVisuals.find(objectData.ID);
+			if (it != objectVisuals.end())
+				it->second->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowHeightHalf());
 		}
 		break;
 	}
-
 }
 /////////////////
 /////////////////
@@ -232,11 +254,12 @@ void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t
 
 
 	//Start receiving again
-	socketTCP.async_receive(
-		boost::asio::buffer(receiveBufferTCP),
-		boost::bind(&Game::receiveHandlerTCP,
-		this, boost::asio::placeholders::error,
-		boost::asio::placeholders::bytes_transferred));
+	if (checkBit(state, GAME_EXIT_BIT))
+		socketTCP.async_receive(
+			boost::asio::buffer(receiveBufferTCP),
+			boost::bind(&Game::receiveHandlerTCP,
+			this, boost::asio::placeholders::error,
+			boost::asio::placeholders::bytes_transferred));
 }
 ///////////////////////
 ///////////////////////

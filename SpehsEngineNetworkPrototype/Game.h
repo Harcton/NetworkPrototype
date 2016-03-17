@@ -54,7 +54,7 @@ private:
 	//Misc
 	uint16_t state;
 	CLIENT_ID_TYPE ID;
-	std::vector<ObjectVisual*> objectVisuals;
+	std::unordered_map<uint32_t, ObjectVisual*> objectVisuals;
 	std::vector<ObjectData> newObjects;
 	//Mutex
 	std::recursive_mutex idMutex;

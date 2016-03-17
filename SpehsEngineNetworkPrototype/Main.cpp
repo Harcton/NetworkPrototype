@@ -138,7 +138,7 @@ void delServers(std::vector<std::string>& words)
 	if (gameServerPtr || gameServerThread)
 	{
 		spehs::console::log("Stopping game server");
-		gameServerThread->detach();
+		gameServerThread->join();
 		delete gameServerThread;
 		delete gameServerPtr;
 		gameServerThread = nullptr;
@@ -163,12 +163,12 @@ void main()
 	spehs::console::addCommand("game", game);
 	std::vector<std::string> placeholder = {"placeholder"};
 
-	switch (0)
+	switch (3)
 	{
 	default:break;
 	case 1:
 		/*Server never receives enter, unless typed ingame console...?*/
-		placeholder.push_back("192.162.1.233");
+		placeholder.push_back("172.31.16.13");
 		gameServer(placeholder);
 		Sleep(500);
 		game(placeholder);
@@ -179,6 +179,9 @@ void main()
 		gameServer(placeholder);
 		Sleep(500);
 		game(placeholder);
+		break;
+	case 3:
+		gameServer(placeholder);
 		break;
 	case 11:
 		placeholder.push_back("192.162.1.233");
@@ -206,7 +209,10 @@ void main()
 			spehs::console::update();
 			inputManager->update();
 			if (inputManager->isKeyDown(KEYBOARD_ESCAPE))
+			{
+				gameServerPtr->exit();
 				loopState = 0;
+			}
 
 			//Render
 			spehs::console::render();

@@ -4,8 +4,8 @@
 #define PORT_NUMBER_TCP 41624
 #define PORT_NUMBER_UDP 41625
 #define LOG_NETWORK false
-#define TCP_DATAGRAM_SIZE 16000//65527
-#define UDP_DATAGRAM_SIZE 32000//65527
+#define TCP_DATAGRAM_SIZE 64000//65527
+#define UDP_DATAGRAM_SIZE 64000
 #define CLIENT_ID_TYPE uint32_t
 //41624
 //13
@@ -18,7 +18,7 @@ namespace packet
 	{
 		invalid = 0,
 		//UDP
-		enterUdpEndpoint,//Client sends 1 byte packet so that the server may 
+		enterUdpEndpoint,//Client sends 1 byte packet so that the server can save the client udp socket endpoint
 		enterUdpEndpointReceived,//Server sends to client that the endpoint has been succesfully received
 		updateInput,
 		updateObj,
@@ -36,7 +36,7 @@ namespace packet
 }
 
 
-/**Structure for containing all player state data*/
+/**Structure for containing all static player state data*/
 struct PlayerStateData
 {
 	PlayerStateData() : type(packet::updateInput){}
@@ -52,5 +52,5 @@ struct ObjectData
 	uint32_t ID;
 	int16_t x;
 	int16_t y;
-	int64_t excess;
+	//int64_t excess[2];
 };
