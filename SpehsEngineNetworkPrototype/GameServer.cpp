@@ -9,8 +9,11 @@
 #include <SpehsEngine/Console.h>
 #include <SpehsEngine/BitwiseOperations.h>
 #include <SpehsEngine/Time.h>
+#include <SpehsEngine/ApplicationData.h>
 #include "GameServer.h"
 #include "MakeDaytimeString.h"
+#define PI 3.14159265359f
+#define PERFORMANCE_TEST_OBJECT_COUNT 500
 
 Client::Client(boost::asio::io_service& io, GameServer& s) : socket(io), server(s){}
 void Client::startReceiveTCP()
@@ -53,7 +56,20 @@ void Client::receiveHandler(const boost::system::error_code& error, std::size_t 
 GameServer::GameServer() :
 	acceptorTCP(ioService, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), PORT_NUMBER_TCP)),
 	socketUDP(ioService, boost::asio::ip::udp::endpoint(boost::asio::ip::udp::v4(), PORT_NUMBER_UDP)),
-	objectDataUDP{}, state (0){}
+	objectDataUDP{}, state (0)
+{
+	//Performance test
+	objectMutex.lock();
+	for (int i = 0; i < PERFORMANCE_TEST_OBJECT_COUNT; i++)
+	{
+		float angle = float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) * 2.0f * PI;
+		objects.push_back(new Object);
+		objects.back()->ID = i + 1;
+		objects.back()->x = cos(angle) * float(applicationData->getWindowHeightHalf()) * float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) + applicationData->getWindowWidthHalf();
+		objects.back()->y = sin(angle) * float(applicationData->getWindowHeightHalf()) * float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) + applicationData->getWindowHeightHalf();
+	}
+	objectMutex.unlock();
+}
 GameServer::~GameServer()
 {
 	for (unsigned i = 0; i < objects.size(); i++)
@@ -75,12 +91,27 @@ void GameServer::run()
 	{
 		//Object pre update
 		//Object update
+		update();
 		//Object post update
 		//Chunk update
 		//Physics update
 		sendUpdateData();
 	}
 	ioServiceThread.join();
+}
+void GameServer::update()
+{
+	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
+	static float a = 0.0f;
+	a += spehs::deltaTime / 50000.0f;
+	if (a > 2 * PI)
+		a = 0;
+	for (int i = 0; i < PERFORMANCE_TEST_OBJECT_COUNT; i++)
+	{
+		float angle = float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) * 2.0f * PI + a;
+		objects[i]->x = cos(angle) * float(applicationData->getWindowHeightHalf()) * float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) + applicationData->getWindowWidthHalf();
+		objects[i]->y = sin(angle) * float(applicationData->getWindowHeightHalf()) * float(i) / float(PERFORMANCE_TEST_OBJECT_COUNT) + applicationData->getWindowHeightHalf();
+	}
 }
 void GameServer::sendUpdateData()
 {
@@ -152,7 +183,7 @@ void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boos
 	//Create object for player
 	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
 	newObjects.push_back(new Object());
-	newObjects.back()->ID = clients.back()->ID;
+	newObjects.back()->ID = objects.back()->ID + 1;
 	
 	std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
 

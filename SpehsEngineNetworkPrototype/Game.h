@@ -75,6 +75,6 @@ private:
 	boost::asio::ip::udp::resolver::query queryUDP;
 
 	//Data
-	boost::array<unsigned char, 1024> receiveBufferTCP;
-	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBufferUDP;
+	boost::array<unsigned char, TCP_DATAGRAM_SIZE> receiveBufferTCP;
+	boost::array<unsigned char, UDP_DATAGRAM_SIZE> receiveBufferUDP;
 };

@@ -116,21 +116,23 @@ void Game::run()
 }
 void Game::update()
 {
-	std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
-	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
 	
 	//New objects
+	objectMutex.lock();
 	for (unsigned i = 0; i < newObjects.size(); i++)
 	{
 		objectVisuals.push_back(new ObjectVisual());
 		objectVisuals.back()->ID = newObjects[i].ID;
 		objectVisuals.back()->polygon.setPosition(newObjects[i].x - applicationData->getWindowWidthHalf(), newObjects[i].y - applicationData->getWindowWidthHalf());
 	}
-	newObjects.clear();	
+	newObjects.clear();
+	objectMutex.unlock();
 	
 	//Gather state contents
 	std::array<PlayerStateData, 1> playerStateData;
+	idMutex.lock();
 	playerStateData[0].ID = ID;
+	idMutex.unlock();
 	playerStateData[0].mouseX = inputManager->getMouseX();
 	playerStateData[0].mouseY = inputManager->getMouseY();
 

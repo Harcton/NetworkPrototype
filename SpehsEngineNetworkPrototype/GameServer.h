@@ -82,6 +82,8 @@ public:
 	void clientExit(uint32_t ID);
 
 private:
+	void update();
+
 	void startReceiveTCP();
 	void startReceiveUDP();
 	void handleAcceptClient(boost::shared_ptr<Client> client, const boost::system::error_code& error);
@@ -103,8 +105,8 @@ private:
 	////Network data
 	//TCP
 	//UDP
-	boost::array<unsigned char, UDP_DATAGRAM_MAX> receiveBufferUDP;
-	boost::array<unsigned char, UDP_DATAGRAM_MAX> objectDataUDP;//Outgoing object data packet
+	boost::array<unsigned char, UDP_DATAGRAM_SIZE> receiveBufferUDP;
+	boost::array<unsigned char, UDP_DATAGRAM_SIZE> objectDataUDP;//Outgoing object data packet
 	std::array<PlayerStateData, 1> playerStateDataBufferUDP;//Buffer for memcopying data from receive buffer into readable format
 	
 	std::recursive_mutex objectMutex;
