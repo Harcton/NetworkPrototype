@@ -43,13 +43,16 @@ public:
 	{
 		return  boost::shared_ptr<Client>(new Client(ioService, server));
 	}
+	~Client();
 	void startReceiveTCP();
 	void receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred);
 
 	GameServer& server;
-	uint32_t ID;
+	CLIENT_ID_TYPE ID;
 	boost::asio::ip::tcp::socket socket;
+	boost::asio::ip::udp::endpoint* udpEndpoint;
 	boost::array<unsigned char, 128> receiveBuffer;
+	std::recursive_mutex socketMutex;
 private:
 	Client(boost::asio::io_service& ioService, GameServer& server);
 };
@@ -79,7 +82,7 @@ public:
 	void run();
 	void gameLoop();
 
-	void clientExit(uint32_t ID);
+	void clientExit(CLIENT_ID_TYPE ID);
 
 private:
 	void update();
@@ -109,11 +112,13 @@ private:
 	boost::array<unsigned char, UDP_DATAGRAM_SIZE> objectDataUDP;//Outgoing object data packet
 	std::array<PlayerStateData, 1> playerStateDataBufferUDP;//Buffer for memcopying data from receive buffer into readable format
 	
-	std::recursive_mutex objectMutex;
 	std::vector<Object*> objects;
 	std::vector<Object*> newObjects;
 	std::vector<Object*> removedObjects;
-	
-	std::recursive_mutex clientMutex;
 	std::vector<boost::shared_ptr<Client>> clients;
+	
+	//Mutex
+	std::recursive_mutex clientMutex;
+	std::recursive_mutex objectMutex;
+	std::recursive_mutex udpSocketMutex;
 };

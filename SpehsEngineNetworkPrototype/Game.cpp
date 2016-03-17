@@ -55,12 +55,9 @@ void Game::run()
 			socketTCP.send(boost::asio::buffer(enterPacket));
 
 			//Wait for receiving return data
-			socketTCP.async_receive(boost::asio::buffer(receiveBufferTCP),
-				boost::bind(
-					&Game::receiveHandlerTCP,
-					this,
-					boost::asio::placeholders::error,
-					boost::asio::placeholders::bytes_transferred));
+			socketTCP.receive(boost::asio::buffer(receiveBufferTCP));
+			boost::system::error_code e;
+			receiveHandlerTCP(e, sizeof(packet::PacketType) + sizeof(CLIENT_ID_TYPE));
 			success = true;
 		}
 		catch (std::exception& e)
@@ -78,6 +75,13 @@ void Game::run()
 			serverEndpointUDP = *resolverUDP.resolve(queryUDP);
 			socketUDP.open(boost::asio::ip::udp::v4());
 			socketUDP.connect(serverEndpointUDP);
+			boost::array<unsigned char, sizeof(CLIENT_ID_TYPE) + sizeof(packet::PacketType)> enterUDP;
+			enterUDP[0] = packet::enterUdpEndpoint;
+			memcpy(&enterUDP[sizeof(packet::PacketType)], &ID, sizeof(ID));
+			socketUDP.send(boost::asio::buffer(enterUDP));//HACK: send 3 times for better chance for the packet to arrive at server...
+			socketUDP.send(boost::asio::buffer(enterUDP));
+			socketUDP.send(boost::asio::buffer(enterUDP));
+			socketUDP.receive(boost::asio::buffer(enterUDP));//Wait for server response
 			success = true;
 		}
 		catch (std::exception& e)
@@ -150,24 +154,34 @@ void Game::render()
 }
 void Game::receiveUpdate()
 {
+	size_t offset = sizeof(packet::PacketType);
 	std::lock_guard<std::recursive_mutex> objectLockGuardMutex(objectMutex);
-	unsigned objectCount;
-	memcpy(&objectCount, &receiveBufferUDP[0], sizeof(unsigned));
-	size_t offset = sizeof(objectCount);
-	ObjectData objectData;//Temp location
-	for (unsigned c = 0; c < objectCount; c++)
+	switch (receiveBufferUDP[offset - sizeof(packet::PacketType)])
 	{
-		memcpy(&objectData, &receiveBufferUDP[offset], sizeof(ObjectData));
-		offset += sizeof(ObjectData);
-		for (unsigned i = 0; i < objectVisuals.size(); i++)
+	default:
+	case packet::invalid:
+		break;
+	case packet::updateObj:
+		unsigned objectCount;
+		memcpy(&objectCount, &receiveBufferUDP[offset], sizeof(unsigned));
+		offset += sizeof(objectCount);
+		ObjectData objectData;//Temp location
+		for (unsigned c = 0; c < objectCount; c++)
 		{
-			if (objectVisuals[i]->ID == objectData.ID)
+			memcpy(&objectData, &receiveBufferUDP[offset], sizeof(ObjectData));
+			offset += sizeof(ObjectData);
+			for (unsigned i = 0; i < objectVisuals.size(); i++)
 			{
-				objectVisuals[i]->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowHeightHalf());
-				break;
+				if (objectVisuals[i]->ID == objectData.ID)
+				{
+					objectVisuals[i]->polygon.setPosition(objectData.x - applicationData->getWindowWidthHalf(), objectData.y - applicationData->getWindowHeightHalf());
+					break;
+				}
 			}
 		}
+		break;
 	}
+
 }
 /////////////////
 /////////////////
@@ -196,7 +210,7 @@ void Game::receiveHandlerTCP(const boost::system::error_code& error, std::size_t
 		{
 			std::lock_guard<std::recursive_mutex> IDLockGuardMutex(idMutex);
 			memcpy(&ID, &receiveBufferTCP[offset], sizeof(sizeof(ID)));
-			offset += sizeof(uint32_t);
+			offset += sizeof(CLIENT_ID_TYPE);
 		}
 		break;
 		case packet::createObj:

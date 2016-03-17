@@ -6,6 +6,7 @@
 #define LOG_NETWORK false
 #define TCP_DATAGRAM_SIZE 16000//65527
 #define UDP_DATAGRAM_SIZE 32000//65527
+#define CLIENT_ID_TYPE uint32_t
 //41624
 //13
 namespace packet
@@ -17,7 +18,10 @@ namespace packet
 	{
 		invalid = 0,
 		//UDP
-		update,
+		enterUdpEndpoint,//Client sends 1 byte packet so that the server may 
+		enterUdpEndpointReceived,//Server sends to client that the endpoint has been succesfully received
+		updateInput,
+		updateObj,
 		//TCP
 		enter,
 		enterID,
@@ -35,9 +39,9 @@ namespace packet
 /**Structure for containing all player state data*/
 struct PlayerStateData
 {
-	PlayerStateData() : type(packet::update){}
-	unsigned char type;
-	uint32_t ID;
+	PlayerStateData() : type(packet::updateInput){}
+	packet::PacketType type;
+	uint32_t ID;///< Sender ID (client)
 
 	//Input data
 	int16_t mouseX;
@@ -48,4 +52,5 @@ struct ObjectData
 	uint32_t ID;
 	int16_t x;
 	int16_t y;
+	int64_t excess;
 };

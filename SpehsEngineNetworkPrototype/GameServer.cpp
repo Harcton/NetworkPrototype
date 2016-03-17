@@ -15,36 +15,6 @@
 #define PI 3.14159265359f
 #define PERFORMANCE_TEST_OBJECT_COUNT 500
 
-Client::Client(boost::asio::io_service& io, GameServer& s) : socket(io), server(s){}
-void Client::startReceiveTCP()
-{
-	socket.async_receive(boost::asio::buffer(receiveBuffer), boost::bind(&Client::receiveHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
-}
-void Client::receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred)
-{
-	if (bytesTransferred < 1)
-		return;//Must have transferred at least 1 byte (packet type)
-	if (error)
-		return;//TODO
-
-	bool restartToReceive = true;
-	switch (receiveBuffer[0])
-	{
-	default:
-		spehs::console::warning("Client" + std::to_string(ID) + " received invalid packet type (TCP)!");
-		break;
-	case packet::enter:
-		//Enter practically useless packet type, enter server handled by acceptor
-		break;
-	case packet::exit:
-		server.clientExit(ID);
-		restartToReceive = false;
-		break;
-	}
-
-	if (restartToReceive)
-		startReceiveTCP();
-}
 
 
 
@@ -153,11 +123,45 @@ void GameServer::sendUpdateData()
 		std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
 		int activeClientCount = int(clients.size()) - 1;
 		for (int i = 0; i < activeClientCount; i++)
+		{
+			clients[i]->socketMutex.lock();
 			clients[i]->socket.send(boost::asio::buffer(packetTCP));
+			clients[i]->socketMutex.unlock();
+		}
 	}
 
 	//UDP packet
+	offset = 0;
 	//Create object data packet for each client
+	objectDataUDP[offset] = packet::updateObj;
+	offset += sizeof(packet::PacketType);
+	//Write object count
+	unsigned objectCount = objects.size();
+	memcpy(&objectDataUDP[offset], &objectCount, sizeof(unsigned));
+	offset += sizeof(objectCount);
+	//Write objects
+	for (unsigned i = 0; i < objects.size(); i++)
+	{
+		memcpy(&objectDataUDP[offset], objects[i], sizeof(ObjectData));
+		offset += sizeof(ObjectData);
+	}
+	try
+	{
+		std::lock_guard<std::recursive_mutex> lockUdpSocket(udpSocketMutex);
+		for (unsigned i = 0; i < clients.size(); i++)
+		{
+			if (clients[i]->udpEndpoint)
+			{
+				clients[i]->socketMutex.lock();
+				socketUDP.send_to(boost::asio::buffer(objectDataUDP), *clients[i]->udpEndpoint);
+				clients[i]->socketMutex.unlock();
+			}
+		}
+	}
+	catch (std::exception& e)
+	{
+		std::cerr << "\n" << e.what();
+	}
 
 }
 /////////////////
@@ -176,7 +180,9 @@ void GameServer::startReceiveTCP()
 	else
 		clients.back()->ID = 1;
 
+	clients.back()->socketMutex.lock();
 	acceptorTCP.async_accept(clients.back()->socket, boost::bind(&GameServer::handleAcceptClient, this, clients.back(), boost::asio::placeholders::error));
+	clients.back()->socketMutex.unlock();
 }
 void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boost::system::error_code& error)
 {
@@ -188,7 +194,9 @@ void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boos
 	std::lock_guard<std::recursive_mutex> clientLockGuardMutex(clientMutex);
 
 	//Log enter
+	clients.back()->socketMutex.lock();
 	spehs::console::log("Client " + std::to_string(clients.back()->ID) + " [" + clients.back()->socket.remote_endpoint().address().to_string() + "] entered the game");
+	clients.back()->socketMutex.unlock();
 
 	//Data vector
 	std::vector<unsigned char> packetTCP;
@@ -226,11 +234,13 @@ void GameServer::handleAcceptClient(boost::shared_ptr<Client> client, const boos
 
 	//Start receiving again
 	clients.back()->startReceiveTCP();
+	clients.back()->socketMutex.lock();
 	clients.back()->socket.send(boost::asio::buffer(packetTCP));
+	clients.back()->socketMutex.unlock();
 	startReceiveTCP();
 	
 }
-void GameServer::clientExit(uint32_t ID)
+void GameServer::clientExit(CLIENT_ID_TYPE ID)
 {
 	//Remove client from clients
 	{
@@ -239,7 +249,9 @@ void GameServer::clientExit(uint32_t ID)
 		{
 			if (clients[i]->ID == ID)
 			{
+				clients[i]->socketMutex.lock();
 				spehs::console::log("Client " + std::to_string(clients[i]->ID) + " [" + clients[i]->socket.remote_endpoint().address().to_string() + "] exited the game");
+				clients[i]->socketMutex.unlock();
 				clients.erase(clients.begin() + i);
 				break;
 			}
@@ -262,6 +274,7 @@ void GameServer::clientExit(uint32_t ID)
 }
 void GameServer::startReceiveUDP()
 {
+	std::lock_guard<std::recursive_mutex> lockUdpSocket(udpSocketMutex);
 	socketUDP.async_receive_from(
 		boost::asio::buffer(receiveBufferUDP), senderEndpointUDP,
 		boost::bind(&GameServer::handleReceiveUDP, this,
@@ -283,7 +296,29 @@ void GameServer::handleReceiveUDP(const boost::system::error_code& error, std::s
 		case packet::invalid:
 			spehs::console::error("Server: packet with invalid packet type received!");
 			break;
-		case packet::update:
+		case packet::enterUdpEndpoint:
+		{
+			clientMutex.lock();
+			CLIENT_ID_TYPE id;
+			memcpy(&id, &receiveBufferUDP[1], sizeof(id));
+			std::lock_guard<std::recursive_mutex> lockUdpSocket(udpSocketMutex);
+			for (unsigned i = 0; i < clients.size(); i++)
+			{
+				if (clients[i]->ID == id && !clients[i]->udpEndpoint)
+				{
+					clients[i]->udpEndpoint = new boost::asio::ip::udp::endpoint;
+					*clients[i]->udpEndpoint = senderEndpointUDP;
+					boost::array<unsigned char, 2> answer = { packet::enterUdpEndpointReceived, 1 };
+					socketUDP.send_to(boost::asio::buffer(answer), senderEndpointUDP);//HACK: send 3 times to client for better chance of packet arrival
+					socketUDP.send_to(boost::asio::buffer(answer), senderEndpointUDP);
+					socketUDP.send_to(boost::asio::buffer(answer), senderEndpointUDP);
+					break;
+				}
+			}
+			clientMutex.unlock();
+		}
+			break;
+		case packet::updateInput:
 			receiveUpdate();
 			break;
 		}
@@ -313,29 +348,44 @@ void GameServer::receiveUpdate()
 			break;
 		}
 	}
+}
+//CLIENT (run from io service thread)
+Client::Client(boost::asio::io_service& io, GameServer& s) : socket(io), server(s), udpEndpoint(nullptr){}
+Client::~Client()
+{
+	if (udpEndpoint)
+		delete udpEndpoint;
+}
+void Client::startReceiveTCP()
+{
+	socketMutex.lock();
+	socket.async_receive(boost::asio::buffer(receiveBuffer), boost::bind(&Client::receiveHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
+	socketMutex.unlock();
+}
+void Client::receiveHandler(const boost::system::error_code& error, std::size_t bytesTransferred)
+{
+	if (bytesTransferred < 1)
+		return;//Must have transferred at least 1 byte (packet type)
+	if (error)
+		return;//TODO
 
-	//Send return packet (object data) back to player
-	//Write object count
-	unsigned objectCount = objects.size();
-	memcpy(&objectDataUDP[0], &objectCount, sizeof(unsigned));
-	//Write objects
-	size_t offset = sizeof(unsigned);
-	for (unsigned i = 0; i < objects.size(); i++)
+	bool restartToReceive = true;
+	switch (receiveBuffer[0])
 	{
-		memcpy(&objectDataUDP[0] + offset, objects[i], sizeof(ObjectData));
-		offset += sizeof(ObjectData);
+	default:
+		spehs::console::warning("Client" + std::to_string(ID) + " received invalid packet type (TCP)!");
+		break;
+	case packet::enter:
+		//Enter practically useless packet type, enter server handled by acceptor
+		break;
+	case packet::exit:
+		server.clientExit(ID);
+		restartToReceive = false;
+		break;
 	}
-	try
-	{
-		/* Plain socket.send() doesn's work - the socket isn't connected to the client in this case
-		socket.send_to() sends to 192.168.1.<localnumberthing> instead of 192.168.1.1 -> game never receives response
-		*/
-		socketUDP.send_to(boost::asio::buffer(objectDataUDP), senderEndpointUDP);		
-	}
-	catch (std::exception& e)
-	{
-		std::cerr << "\n" << e.what();
-	}
+
+	if (restartToReceive)
+		startReceiveTCP();
 }
 /////////////////////////////
 /////////////////////////////

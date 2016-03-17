@@ -53,7 +53,7 @@ private:
 
 	//Misc
 	uint16_t state;
-	uint32_t ID;//Client id
+	CLIENT_ID_TYPE ID;
 	std::vector<ObjectVisual*> objectVisuals;
 	std::vector<ObjectData> newObjects;
 	//Mutex
