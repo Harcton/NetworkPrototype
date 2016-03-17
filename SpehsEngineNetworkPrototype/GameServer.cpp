@@ -43,6 +43,7 @@ GameServer::GameServer() :
 GameServer::~GameServer()
 {
 	ioService.stop();
+	clients.clear();//Not so smart are they
 
 	for (unsigned i = 0; i < objects.size(); i++)
 		delete objects[i];
@@ -73,6 +74,7 @@ void GameServer::run()
 		//Physics update
 		sendUpdateData();
 	}
+	ioService.stop();
 	ioServiceThread.join();
 }
 void GameServer::update()
@@ -205,7 +207,7 @@ void GameServer::startReceiveTCP()
 		clients.back()->ID = clients[clients.size() - 2]->ID + 1;//Take next ID
 	else
 		clients.back()->ID = 1;
-	if (checkBit(state, SERVER_EXIT_BIT))
+	if (!checkBit(state, SERVER_EXIT_BIT))
 	{
 		clients.back()->socketMutex.lock();
 		acceptorTCP.async_accept(clients.back()->socket, boost::bind(&GameServer::handleAcceptClient, this, clients.back(), boost::asio::placeholders::error));
@@ -287,7 +289,7 @@ void GameServer::clientExit(CLIENT_ID_TYPE ID)
 }
 void GameServer::startReceiveUDP()
 {
-	if (checkBit(state, SERVER_EXIT_BIT))
+	if (!checkBit(state, SERVER_EXIT_BIT))
 	{
 		std::lock_guard<std::recursive_mutex> lockUdpSocket(udpSocketMutex);
 		socketUDP.async_receive_from(
@@ -403,7 +405,7 @@ Client::~Client()
 }
 void Client::startReceiveTCP()
 {
-	if (checkBit(server.state, SERVER_EXIT_BIT))
+	if (!checkBit(server.state, SERVER_EXIT_BIT))
 	{
 		socketMutex.lock();
 		socket.async_receive(boost::asio::buffer(receiveBuffer), boost::bind(&Client::receiveHandler, this, boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred));
